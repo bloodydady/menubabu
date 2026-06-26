@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Restaurants: anyone can read (for public menu pages)
+    // Only super admin can create/update/delete restaurants
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+        request.auth.token.email == 'monsteroflove1234@gmail.com';
+
+      // Dishes: anyone can read (for public menu pages)
+      // Owner of the restaurant OR super admin can write
+      match /dishes/{dishId} {
+        allow read: if true;
+        allow write: if request.auth != null && (
+          request.auth.token.email == 'monsteroflove1234@gmail.com' ||
+          get(/databases/$(database)/documents/restaurants/$(restaurantId)).data.ownerEmail == request.auth.token.email
+        );
+      }
+    }
+  }
+}
