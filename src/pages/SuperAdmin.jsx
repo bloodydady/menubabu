@@ -21,6 +21,7 @@ export default function SuperAdmin() {
   const [activeView, setActiveView] = useState("dashboard"); // dashboard | restaurants | menu
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [restaurantToEdit, setRestaurantToEdit] = useState(null);
   const [showQRModal, setShowQRModal] = useState(null);
   const [totalDishes, setTotalDishes] = useState(0);
 
@@ -78,7 +79,7 @@ export default function SuperAdmin() {
 
   const stats = [
     { label: "Total Restaurants", value: restaurants.length, icon: <Store size={22} />, color: "from-orange-400 to-orange-600" },
-    { label: "Active Menus", value: restaurants.filter(r => r.isActive).length, icon: <UtensilsCrossed size={22} />, color: "from-green-400 to-green-600" },
+    { label: "Active Menus", value: restaurants.filter(r => r.isActive !== false).length, icon: <UtensilsCrossed size={22} />, color: "from-green-400 to-green-600" },
     { label: "Total Dishes", value: totalDishes, icon: <BarChart3 size={22} />, color: "from-blue-400 to-blue-600" },
   ];
 
@@ -203,8 +204,8 @@ export default function SuperAdmin() {
                         <div className="font-semibold text-sm text-gray-900 truncate">{r.name}</div>
                         <div className="text-xs text-gray-400 truncate">{r.ownerEmail}</div>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                        {r.isActive ? "Active" : "Inactive"}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.isActive !== false ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+                        {r.isActive !== false ? "Active" : "Inactive"}
                       </span>
                     </div>
                   ))}
@@ -245,8 +246,8 @@ export default function SuperAdmin() {
                           <div className="flex-1 min-w-0">
                             <div className="font-heading font-bold text-gray-900 text-base">{r.name}</div>
                             <div className="text-xs text-gray-400 truncate">{r.ownerEmail}</div>
-                            <span className={`inline-flex text-xs px-2 py-0.5 rounded-full font-medium mt-1 ${r.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                              {r.isActive ? "Active" : "Inactive"}
+                            <span className={`inline-flex text-xs px-2 py-0.5 rounded-full font-medium mt-1 ${r.isActive !== false ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+                              {r.isActive !== false ? "Active" : "Inactive"}
                             </span>
                           </div>
                         </div>
@@ -265,8 +266,16 @@ export default function SuperAdmin() {
                             <QrCode size={13} /> QR Code
                           </button>
                           <button
+                            onClick={() => setRestaurantToEdit(r)}
+                            className="bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-semibold py-2 px-3 rounded-xl transition-all"
+                            title="Edit Restaurant"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
                             onClick={() => handleDelete(r.id)}
                             className="bg-red-50 hover:bg-red-100 text-red-500 text-xs font-semibold py-2 px-3 rounded-xl transition-all"
+                            title="Delete Restaurant"
                           >
                             <Trash2 size={13} />
                           </button>
@@ -301,10 +310,16 @@ export default function SuperAdmin() {
         </main>
       </div>
 
-      {/* Add Restaurant Modal */}
+      {/* Add/Edit Restaurant Modal */}
       <AnimatePresence>
-        {showAddModal && (
-          <AddRestaurantModal onClose={() => setShowAddModal(false)} />
+        {(showAddModal || restaurantToEdit) && (
+          <RestaurantModal
+            restaurantToEdit={restaurantToEdit}
+            onClose={() => {
+              setShowAddModal(false);
+              setRestaurantToEdit(null);
+            }}
+          />
         )}
       </AnimatePresence>
 
@@ -363,11 +378,19 @@ export default function SuperAdmin() {
   );
 }
 
-function AddRestaurantModal({ onClose }) {
+function RestaurantModal({ onClose, restaurantToEdit = null }) {
   const [form, setForm] = useState({
-    name: "", nameHindi: "", logoUrl: "", bannerUrl: "",
-    description: "", ownerEmail: "", isActive: true,
-    address: "", cuisineTypes: "", timings: "", phone: "",
+    name: restaurantToEdit?.name || "",
+    nameHindi: restaurantToEdit?.nameHindi || "",
+    logoUrl: restaurantToEdit?.logoUrl || "",
+    bannerUrl: restaurantToEdit?.bannerUrl || "",
+    description: restaurantToEdit?.description || "",
+    ownerEmail: restaurantToEdit?.ownerEmail || "",
+    isActive: restaurantToEdit?.isActive !== undefined ? restaurantToEdit.isActive : true,
+    address: restaurantToEdit?.address || "",
+    cuisineTypes: restaurantToEdit?.cuisineTypes || "",
+    timings: restaurantToEdit?.timings || "",
+    phone: restaurantToEdit?.phone || "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -375,14 +398,19 @@ function AddRestaurantModal({ onClose }) {
     if (!form.name || !form.ownerEmail) return toast.error("Name and owner email are required");
     setSaving(true);
     try {
-      await addDoc(collection(db, "restaurants"), {
-        ...form,
-        createdAt: serverTimestamp(),
-      });
-      toast.success("Restaurant added! 🎉");
+      if (restaurantToEdit) {
+        await updateDoc(doc(db, "restaurants", restaurantToEdit.id), form);
+        toast.success("Restaurant updated! 🎉");
+      } else {
+        await addDoc(collection(db, "restaurants"), {
+          ...form,
+          createdAt: serverTimestamp(),
+        });
+        toast.success("Restaurant added! 🎉");
+      }
       onClose();
     } catch (e) {
-      toast.error("Failed to add restaurant");
+      toast.error(restaurantToEdit ? "Failed to update restaurant" : "Failed to add restaurant");
     } finally {
       setSaving(false);
     }
@@ -406,7 +434,9 @@ function AddRestaurantModal({ onClose }) {
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="font-heading text-xl font-bold text-gray-900">Add Restaurant</h2>
+            <h2 className="font-heading text-xl font-bold text-gray-900">
+              {restaurantToEdit ? "Edit Restaurant" : "Add Restaurant"}
+            </h2>
             <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100"><X size={20} /></button>
           </div>
 
@@ -450,13 +480,16 @@ function AddRestaurantModal({ onClose }) {
 
             {/* Active toggle */}
             <div className="flex items-center gap-3 pt-1">
-              <span className="text-sm font-medium text-gray-700">Active</span>
+              <span className="text-sm font-medium text-gray-700">Active Status</span>
               <button
                 onClick={() => setForm(f => ({ ...f, isActive: !f.isActive }))}
                 className={`w-12 h-6 rounded-full transition-colors relative ${form.isActive ? "bg-green-500" : "bg-gray-300"}`}
               >
                 <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${form.isActive ? "left-6" : "left-0.5"}`} />
               </button>
+              <span className={`text-xs font-semibold ${form.isActive ? "text-green-600" : "text-red-500"}`}>
+                {form.isActive ? "Active (Visible & Dashboard Enabled)" : "Inactive (Hidden & Dashboard Locked)"}
+              </span>
             </div>
           </div>
 
@@ -467,7 +500,7 @@ function AddRestaurantModal({ onClose }) {
               disabled={saving}
               className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-semibold text-sm hover:bg-orange-600 disabled:opacity-60 transition-all"
             >
-              {saving ? "Saving..." : "Add Restaurant"}
+              {saving ? "Saving..." : (restaurantToEdit ? "Save Changes" : "Add Restaurant")}
             </button>
           </div>
         </div>

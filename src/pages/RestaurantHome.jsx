@@ -97,6 +97,25 @@ export default function RestaurantHome() {
     </div>
   );
 
+  if (restaurant && restaurant.isActive === false) return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center" style={{ background: "#FFFBF5" }}>
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="max-w-md bg-white p-8 rounded-3xl shadow-xl border border-orange-100 flex flex-col items-center"
+      >
+        <div className="text-6xl mb-4">🏪⚠️</div>
+        <h2 className="font-heading text-2xl font-bold text-gray-900 mb-2">Service Suspended</h2>
+        <p className="text-gray-500 mb-6 text-sm">
+          This restaurant is temporarily suspended or inactive. Please contact the administrator at <strong className="text-orange-600">monsterproduction21@gmail.com</strong> or call <strong className="text-orange-600">8303858857</strong> for details.
+        </p>
+        <div className="font-heading text-xs font-bold text-orange-500 tracking-wider">
+          POWERED BY MENUBABU
+        </div>
+      </motion.div>
+    </div>
+  );
+
   const cuisines = restaurant.cuisineTypes
     ? (Array.isArray(restaurant.cuisineTypes) ? restaurant.cuisineTypes : restaurant.cuisineTypes.split(",").map(c => c.trim()))
     : [];
