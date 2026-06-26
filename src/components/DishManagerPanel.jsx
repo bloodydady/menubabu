@@ -8,7 +8,26 @@ import { db } from "../firebase";
 import toast from "react-hot-toast";
 import { Plus, Edit2, Trash2, X } from "lucide-react";
 
-const CATEGORIES = ["Starters", "Main Course", "Breads", "Drinks", "Desserts"];
+const CATEGORIES = [
+  "Paneer Special",
+  "Chinese",
+  "Thali",
+  "Dal Special",
+  "Rice & Biryani",
+  "Chaap Special",
+  "Rolls & Burgers",
+  "Chowmein & Noodles",
+  "Tandoori Items",
+  "Dosa & South Indian",
+  "Cold Drinks & Beverages",
+  "Ice Creams",
+  "Shakes",
+  "Starters",
+  "Main Course",
+  "Breads",
+  "Drinks",
+  "Desserts"
+];
 
 export default function DishManagerPanel({ restaurant, isOwnerView = false }) {
   const [dishes, setDishes] = useState([]);
@@ -137,7 +156,16 @@ export default function DishManagerPanel({ restaurant, isOwnerView = false }) {
                     </div>
                     {dish.nameHindi && <div className="font-hindi text-xs text-gray-500">{dish.nameHindi}</div>}
                     <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{dish.description}</div>
-                    <div className="text-orange-600 font-bold text-sm mt-1">₹{dish.price}</div>
+                    
+                    {dish.hasPortions ? (
+                      <div className="text-xs text-orange-600 font-bold mt-1 space-y-0.5 bg-orange-50/50 p-1.5 rounded-lg border border-orange-100 max-w-max">
+                        {dish.portions?.full > 0 && <div>Full: ₹{dish.portions.full}</div>}
+                        {dish.portions?.half > 0 && <div>Half: ₹{dish.portions.half}</div>}
+                        {dish.portions?.quarter > 0 && <div>Quarter: ₹{dish.portions.quarter}</div>}
+                      </div>
+                    ) : (
+                      <div className="text-orange-600 font-bold text-sm mt-1">₹{dish.price}</div>
+                    )}
                   </div>
                 </div>
                 <div className="border-t border-gray-50 flex">
@@ -185,7 +213,7 @@ function DishModal({ restaurantId, dish, onClose }) {
   const [form, setForm] = useState({
     name: dish?.name || "",
     nameHindi: dish?.nameHindi || "",
-    category: dish?.category || "Starters",
+    category: dish?.category || CATEGORIES[0],
     price: dish?.price || "",
     description: dish?.description || "",
     descriptionHindi: dish?.descriptionHindi || "",
@@ -193,14 +221,44 @@ function DishModal({ restaurantId, dish, onClose }) {
     isVeg: dish?.isVeg ?? true,
     isSoldOut: dish?.isSoldOut ?? false,
     sortOrder: dish?.sortOrder ?? 0,
+    hasPortions: dish?.hasPortions ?? false,
+    portions: {
+      full: dish?.portions?.full || "",
+      half: dish?.portions?.half || "",
+      quarter: dish?.portions?.quarter || "",
+    }
   });
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!form.name || !form.price) return toast.error("Name and price are required");
+    if (!form.name) return toast.error("Dish name is required");
+    if (!form.hasPortions && !form.price) return toast.error("Price is required");
+    if (form.hasPortions && !form.portions.full && !form.portions.half && !form.portions.quarter) {
+      return toast.error("At least one portion price is required");
+    }
     setSaving(true);
     try {
-      const data = { ...form, price: Number(form.price) };
+      const data = {
+        name: form.name,
+        nameHindi: form.nameHindi,
+        category: form.category,
+        description: form.description,
+        descriptionHindi: form.descriptionHindi,
+        imageUrl: form.imageUrl,
+        isVeg: form.isVeg,
+        isSoldOut: form.isSoldOut,
+        sortOrder: Number(form.sortOrder) || 0,
+        hasPortions: form.hasPortions,
+        price: form.hasPortions
+          ? (Number(form.portions.full) || Number(form.portions.half) || Number(form.portions.quarter) || 0)
+          : Number(form.price),
+        portions: form.hasPortions ? {
+          full: form.portions.full ? Number(form.portions.full) : 0,
+          half: form.portions.half ? Number(form.portions.half) : 0,
+          quarter: form.portions.quarter ? Number(form.portions.quarter) : 0,
+        } : null
+      };
+
       if (isEdit) {
         await updateDoc(doc(db, "restaurants", restaurantId, "dishes", dish.id), data);
         toast.success("Dish updated! ✏️");
@@ -224,7 +282,7 @@ function DishModal({ restaurantId, dish, onClose }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={onClose}
     >
       <motion.div
@@ -252,6 +310,7 @@ function DishModal({ restaurantId, dish, onClose }) {
                 <input value={form.nameHindi} onChange={e => setForm(f => ({ ...f, nameHindi: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-hindi outline-none focus:ring-2 focus:ring-orange-300" placeholder="पनीर बटर मसाला" />
               </div>
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Category</label>
@@ -260,10 +319,71 @@ function DishModal({ restaurantId, dish, onClose }) {
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">Price (₹) *</label>
-                <input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300" placeholder="299" />
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Sort Order</label>
+                <input type="number" value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300" placeholder="0" />
               </div>
             </div>
+
+            {/* Portions section */}
+            <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-800">Portion Pricing (Half/Full/Quarter)</span>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, hasPortions: !f.hasPortions }))}
+                  className={`w-12 h-6 rounded-full transition-colors relative ${form.hasPortions ? "bg-orange-500" : "bg-gray-300"}`}
+                >
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${form.hasPortions ? "left-6" : "left-0.5"}`} />
+                </button>
+              </div>
+
+              {form.hasPortions ? (
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">Full Price (₹)</label>
+                    <input
+                      type="number"
+                      value={form.portions.full}
+                      onChange={e => setForm(f => ({ ...f, portions: { ...f.portions, full: e.target.value } }))}
+                      className="w-full border border-gray-200 rounded-xl px-2.5 py-2 text-xs outline-none focus:ring-2 focus:ring-orange-300"
+                      placeholder="180"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">Half Price (₹)</label>
+                    <input
+                      type="number"
+                      value={form.portions.half}
+                      onChange={e => setForm(f => ({ ...f, portions: { ...f.portions, half: e.target.value } }))}
+                      className="w-full border border-gray-200 rounded-xl px-2.5 py-2 text-xs outline-none focus:ring-2 focus:ring-orange-300"
+                      placeholder="100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">Quarter Price (₹)</label>
+                    <input
+                      type="number"
+                      value={form.portions.quarter}
+                      onChange={e => setForm(f => ({ ...f, portions: { ...f.portions, quarter: e.target.value } }))}
+                      className="w-full border border-gray-200 rounded-xl px-2.5 py-2 text-xs outline-none focus:ring-2 focus:ring-orange-300"
+                      placeholder="60"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Single Price (₹) *</label>
+                  <input
+                    type="number"
+                    value={form.price}
+                    onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300"
+                    placeholder="120"
+                  />
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Description (English)</label>
               <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none outline-none focus:ring-2 focus:ring-orange-300" rows={2} placeholder="Rich and creamy..." />
@@ -283,6 +403,7 @@ function DishModal({ restaurantId, dish, onClose }) {
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-gray-700">Veg</span>
                 <button
+                  type="button"
                   onClick={() => setForm(f => ({ ...f, isVeg: !f.isVeg }))}
                   className={`w-12 h-6 rounded-full transition-colors relative ${form.isVeg ? "bg-green-500" : "bg-red-400"}`}
                 >
@@ -293,6 +414,7 @@ function DishModal({ restaurantId, dish, onClose }) {
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-gray-700">Sold Out</span>
                 <button
+                  type="button"
                   onClick={() => setForm(f => ({ ...f, isSoldOut: !f.isSoldOut }))}
                   className={`w-12 h-6 rounded-full transition-colors relative ${form.isSoldOut ? "bg-red-500" : "bg-gray-300"}`}
                 >

@@ -5,7 +5,26 @@ import { collection, doc, getDoc, onSnapshot, query, orderBy } from "firebase/fi
 import { db } from "../firebase";
 import { ShoppingCart, X, Plus, Minus, Printer, Trash2, ArrowLeft } from "lucide-react";
 
-const CATEGORIES = ["Starters", "Main Course", "Breads", "Drinks", "Desserts"];
+const CATEGORIES = [
+  "Paneer Special",
+  "Chinese",
+  "Thali",
+  "Dal Special",
+  "Rice & Biryani",
+  "Chaap Special",
+  "Rolls & Burgers",
+  "Chowmein & Noodles",
+  "Tandoori Items",
+  "Dosa & South Indian",
+  "Cold Drinks & Beverages",
+  "Ice Creams",
+  "Shakes",
+  "Starters",
+  "Main Course",
+  "Breads",
+  "Drinks",
+  "Desserts"
+];
 
 export default function CustomerMenu() {
   const { restaurantId } = useParams();
@@ -53,22 +72,38 @@ export default function CustomerMenu() {
   }, [restaurant]);
 
   // Cart helpers
-  const addToCart = useCallback((dish) => {
-    setCart(c => ({ ...c, [dish.id]: { dish, qty: (c[dish.id]?.qty || 0) + 1 } }));
+  const addToCart = useCallback((dish, portion = null) => {
+    const key = dish.id + (portion ? `-${portion}` : "");
+    const price = portion && dish.portions ? Number(dish.portions[portion]) : Number(dish.price);
+    setCart(c => ({
+      ...c,
+      [key]: {
+        dish,
+        portion,
+        qty: (c[key]?.qty || 0) + 1,
+        price
+      }
+    }));
   }, []);
-  const removeFromCart = useCallback((dishId) => {
+
+  const removeFromCart = useCallback((dishId, portion = null) => {
+    const key = dishId + (portion ? `-${portion}` : "");
     setCart(c => {
       const next = { ...c };
-      if (next[dishId]?.qty > 1) next[dishId] = { ...next[dishId], qty: next[dishId].qty - 1 };
-      else delete next[dishId];
+      if (next[key]?.qty > 1) {
+        next[key] = { ...next[key], qty: next[key].qty - 1 };
+      } else {
+        delete next[key];
+      }
       return next;
     });
   }, []);
+
   const clearCart = () => setCart({});
 
   const cartItems = Object.values(cart);
   const totalItems = cartItems.reduce((s, i) => s + i.qty, 0);
-  const totalPrice = cartItems.reduce((s, i) => s + i.qty * i.dish.price, 0);
+  const totalPrice = cartItems.reduce((s, i) => s + i.qty * i.price, 0);
 
   // Filter and group dishes
   const filteredDishes = dishes.filter(d => {
@@ -245,9 +280,9 @@ export default function CustomerMenu() {
                     key={dish.id}
                     dish={dish}
                     lang={lang}
-                    qty={cart[dish.id]?.qty || 0}
-                    onAdd={() => addToCart(dish)}
-                    onRemove={() => removeFromCart(dish.id)}
+                    cart={cart}
+                    onAdd={addToCart}
+                    onRemove={removeFromCart}
                     soldOutLabel={t.soldOut}
                   />
                 ))}
@@ -333,19 +368,26 @@ export default function CustomerMenu() {
                     <div className="text-5xl mb-3">🛒</div>
                     <p className="font-medium">{t.emptyCart}</p>
                   </div>
-                ) : cartItems.map(({ dish, qty }) => (
-                  <div key={dish.id} className="flex items-center gap-3 p-3 bg-orange-50 rounded-2xl">
+                ) : cartItems.map(({ dish, portion, qty, price }) => (
+                  <div key={dish.id + (portion ? `-${portion}` : "")} className="flex items-center gap-3 p-3 bg-orange-50 rounded-2xl">
                     <img src={dish.imageUrl} alt={dish.name} className="w-12 h-12 rounded-xl object-cover bg-orange-100" onError={e => e.target.src = "https://placehold.co/48x48/FFF3E0/FF6B00?text=🍽"} />
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-sm text-gray-900 truncate">{lang === "hi" && dish.nameHindi ? dish.nameHindi : dish.name}</div>
-                      <div className="text-orange-600 font-bold text-sm">₹{dish.price * qty}</div>
+                      <div className="font-semibold text-sm text-gray-900 truncate">
+                        {lang === "hi" && dish.nameHindi ? dish.nameHindi : dish.name}
+                        {portion && (
+                          <span className="ml-1.5 text-[9px] text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded font-bold uppercase">
+                            {portion === "half" ? (lang === "hi" ? "हाफ" : "Half") : portion === "quarter" ? (lang === "hi" ? "क्वार्टर" : "Quarter") : (lang === "hi" ? "फुल" : "Full")}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-orange-600 font-bold text-sm">₹{price * qty}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => removeFromCart(dish.id)} className="w-7 h-7 rounded-lg bg-white border border-orange-200 flex items-center justify-center text-orange-500 hover:bg-orange-50">
+                      <button onClick={() => removeFromCart(dish.id, portion)} className="w-7 h-7 rounded-lg bg-white border border-orange-200 flex items-center justify-center text-orange-500 hover:bg-orange-50">
                         <Minus size={14} />
                       </button>
                       <span className="font-bold text-sm w-5 text-center">{qty}</span>
-                      <button onClick={() => addToCart(dish)} className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center text-white hover:bg-orange-600">
+                      <button onClick={() => addToCart(dish, portion)} className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center text-white hover:bg-orange-600">
                         <Plus size={14} />
                       </button>
                     </div>
@@ -400,13 +442,21 @@ export default function CustomerMenu() {
                 <p className="text-gray-500 text-sm">{restaurant.name}</p>
               </div>
               <div className="border-t border-b border-dashed border-gray-200 py-4 space-y-2 mb-4">
-                {cartItems.map(({ dish, qty }, i) => (
-                  <div key={dish.id} className="flex justify-between text-sm">
+                {cartItems.map(({ dish, portion, qty, price }, i) => (
+                  <div key={dish.id + (portion ? `-${portion}` : "")} className="flex justify-between text-sm">
                     <span className="text-gray-700 flex gap-2">
                       <span className="font-semibold text-gray-400">{i + 1}.</span>
-                      {lang === "hi" && dish.nameHindi ? dish.nameHindi : dish.name} × {qty}
+                      <div>
+                        {lang === "hi" && dish.nameHindi ? dish.nameHindi : dish.name}
+                        {portion && (
+                          <span className="ml-1.5 text-[10px] text-orange-600 font-bold uppercase">
+                            ({portion})
+                          </span>
+                        )}
+                        <span className="text-gray-400 text-xs ml-1.5">× {qty}</span>
+                      </div>
                     </span>
-                    <span className="font-semibold">₹{dish.price * qty}</span>
+                    <span className="font-semibold">₹{price * qty}</span>
                   </div>
                 ))}
               </div>
@@ -437,8 +487,22 @@ export default function CustomerMenu() {
   );
 }
 
-function DishCard({ dish, lang, qty, onAdd, onRemove, soldOutLabel }) {
+function DishCard({ dish, lang, cart, onAdd, onRemove, soldOutLabel }) {
   const [imgLoaded, setImgLoaded] = useState(false);
+
+  // Parse available portions if dish has portions
+  const availablePortions = Object.entries(dish.portions || {})
+    .filter(([_, price]) => price && Number(price) > 0)
+    .map(([name]) => name); // ['half', 'full', 'quarter']
+
+  const [selectedPortion, setSelectedPortion] = useState(availablePortions[0] || "full");
+
+  // Determine active item pricing and quantity
+  const hasPortions = dish.hasPortions && availablePortions.length > 0;
+  const activePortion = hasPortions ? selectedPortion : null;
+  const currentPrice = hasPortions ? Number(dish.portions[selectedPortion]) : Number(dish.price);
+  const cartKey = dish.id + (activePortion ? `-${activePortion}` : "");
+  const qty = cart[cartKey]?.qty || 0;
 
   return (
     <motion.div
@@ -481,10 +545,29 @@ function DishCard({ dish, lang, qty, onAdd, onRemove, soldOutLabel }) {
             <p className="text-gray-400 text-xs line-clamp-2 mt-0.5 leading-relaxed">
               {lang === "hi" && dish.descriptionHindi ? dish.descriptionHindi : dish.description}
             </p>
+
+            {/* Portion selectors */}
+            {hasPortions && (
+              <div className="flex gap-1.5 mt-2 mb-1">
+                {availablePortions.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setSelectedPortion(p)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                      selectedPortion === p
+                        ? "bg-orange-100 text-orange-600 border border-orange-300"
+                        : "bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    {p === "half" ? (lang === "hi" ? "हाफ" : "Half") : p === "quarter" ? (lang === "hi" ? "क्वार्टर" : "Quarter") : (lang === "hi" ? "फुल" : "Full")}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between mt-2">
-            <span className="font-black text-orange-600 text-base">₹{dish.price}</span>
+            <span className="font-black text-orange-600 text-base">₹{currentPrice}</span>
 
             {dish.isSoldOut ? (
               <div className="text-xs font-semibold text-red-400 bg-red-50 px-3 py-1.5 rounded-xl border border-red-100">
@@ -493,7 +576,7 @@ function DishCard({ dish, lang, qty, onAdd, onRemove, soldOutLabel }) {
             ) : qty === 0 ? (
               <motion.button
                 whileTap={{ scale: 0.92 }}
-                onClick={onAdd}
+                onClick={() => onAdd(dish, activePortion)}
                 className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md shadow-orange-200"
               >
                 <Plus size={13} /> Add
@@ -505,11 +588,11 @@ function DishCard({ dish, lang, qty, onAdd, onRemove, soldOutLabel }) {
                 transition={{ type: "spring", stiffness: 400, damping: 20 }}
                 className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl overflow-hidden"
               >
-                <button onClick={onRemove} className="w-8 h-8 flex items-center justify-center text-orange-600 hover:bg-orange-100 transition-colors">
+                <button onClick={() => onRemove(dish.id, activePortion)} className="w-8 h-8 flex items-center justify-center text-orange-600 hover:bg-orange-100 transition-colors">
                   <Minus size={14} />
                 </button>
                 <span className="font-black text-orange-700 text-sm min-w-[18px] text-center">{qty}</span>
-                <button onClick={onAdd} className="w-8 h-8 flex items-center justify-center bg-orange-500 text-white hover:bg-orange-600 transition-colors">
+                <button onClick={() => onAdd(dish, activePortion)} className="w-8 h-8 flex items-center justify-center bg-orange-500 text-white hover:bg-orange-600 transition-colors">
                   <Plus size={14} />
                 </button>
               </motion.div>

@@ -11,7 +11,26 @@ import { Plus, Edit2, Trash2, QrCode, Menu, X, ChevronRight, LogOut, Store, Uten
 import QRCode from "react-qr-code";
 import DishManagerPanel from "../components/DishManagerPanel";
 
-const CATEGORIES = ["Starters", "Main Course", "Breads", "Drinks", "Desserts"];
+const CATEGORIES = [
+  "Paneer Special",
+  "Chinese",
+  "Thali",
+  "Dal Special",
+  "Rice & Biryani",
+  "Chaap Special",
+  "Rolls & Burgers",
+  "Chowmein & Noodles",
+  "Tandoori Items",
+  "Dosa & South Indian",
+  "Cold Drinks & Beverages",
+  "Ice Creams",
+  "Shakes",
+  "Starters",
+  "Main Course",
+  "Breads",
+  "Drinks",
+  "Desserts"
+];
 
 export default function SuperAdmin() {
   const { user, logout } = useAuth();
