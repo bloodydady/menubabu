@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /menu/
+Allow: /about
+Allow: /contact
+Allow: /privacy
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /login
+
+Sitemap: https://menubabu.vercel.app/sitemap.xml
