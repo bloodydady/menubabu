@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { Plus, Edit2, Trash2, QrCode, Menu, X, ChevronRight, LogOut, Store, UtensilsCrossed, BarChart3, Download, Copy } from "lucide-react";
 import QRCode from "react-qr-code";
 import DishManagerPanel from "../components/DishManagerPanel";
+import { getDirectImageUrl } from "../utils/imageHelper";
 
 const CATEGORIES = [
   "Paneer Special",
@@ -87,7 +88,7 @@ export default function SuperAdmin() {
       ctx.fillText(restaurantName, 150, 300);
       ctx.font = "12px Inter, sans-serif";
       ctx.fillStyle = "#FF6B00";
-      ctx.fillText("Scan karo, khao maro!", 150, 325);
+      ctx.fillText("Scan to View Menu & Calculate Bill", 150, 325);
       const link = document.createElement("a");
       link.download = `menubabu-qr-${restaurantName.replace(/\s+/g, '-')}.png`;
       link.href = canvas.toDataURL("image/png");
@@ -218,7 +219,7 @@ export default function SuperAdmin() {
                 <div className="space-y-3">
                   {restaurants.slice(0, 5).map((r, i) => (
                     <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-orange-50 transition-colors">
-                      <img src={r.logoUrl} alt="" className="w-10 h-10 rounded-xl object-cover bg-orange-100" onError={e => e.target.src = "https://placehold.co/40x40/FF6B00/fff?text=🍽️"} />
+                      <img src={getDirectImageUrl(r.logoUrl)} alt="" className="w-10 h-10 rounded-xl object-cover bg-orange-100" onError={e => e.target.src = "https://placehold.co/40x40/FF6B00/fff?text=🍽️"} />
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-sm text-gray-900 truncate">{r.name}</div>
                         <div className="text-xs text-gray-400 truncate">{r.ownerEmail}</div>
@@ -257,7 +258,7 @@ export default function SuperAdmin() {
                       <div className="p-5">
                         <div className="flex items-start gap-3 mb-3">
                           <img
-                            src={r.logoUrl}
+                            src={getDirectImageUrl(r.logoUrl)}
                             alt=""
                             className="w-14 h-14 rounded-xl object-cover bg-orange-100 flex-shrink-0"
                             onError={e => e.target.src = "https://placehold.co/56x56/FF6B00/fff?text=🍽"}
@@ -407,6 +408,7 @@ function RestaurantModal({ onClose, restaurantToEdit = null }) {
     ownerEmail: restaurantToEdit?.ownerEmail || "",
     isActive: restaurantToEdit?.isActive !== undefined ? restaurantToEdit.isActive : true,
     address: restaurantToEdit?.address || "",
+    mapUrl: restaurantToEdit?.mapUrl || "",
     cuisineTypes: restaurantToEdit?.cuisineTypes || "",
     timings: restaurantToEdit?.timings || "",
     phone: restaurantToEdit?.phone || "",
@@ -480,16 +482,17 @@ function RestaurantModal({ onClose, restaurantToEdit = null }) {
             <p className="text-xs font-bold text-orange-500 uppercase tracking-widest pt-1">Images</p>
             <Input label="Logo URL" value={form.logoUrl} onChange={v => setForm(f => ({ ...f, logoUrl: v }))} placeholder="https://..." />
             {form.logoUrl && (
-              <img src={form.logoUrl} alt="Logo preview" className="w-16 h-16 rounded-xl object-cover border-2 border-orange-100" onError={e => e.target.style.display = 'none'} />
+              <img src={getDirectImageUrl(form.logoUrl)} alt="Logo preview" className="w-16 h-16 rounded-xl object-cover border-2 border-orange-100" onError={e => e.target.style.display = 'none'} />
             )}
             <Input label="Banner URL (wide cover photo)" value={form.bannerUrl} onChange={v => setForm(f => ({ ...f, bannerUrl: v }))} placeholder="https://..." />
             {form.bannerUrl && (
-              <img src={form.bannerUrl} alt="Banner preview" className="w-full h-24 rounded-xl object-cover border-2 border-orange-100" onError={e => e.target.style.display = 'none'} />
+              <img src={getDirectImageUrl(form.bannerUrl)} alt="Banner preview" className="w-full h-24 rounded-xl object-cover border-2 border-orange-100" onError={e => e.target.style.display = 'none'} />
             )}
 
             {/* Section: Details */}
             <p className="text-xs font-bold text-orange-500 uppercase tracking-widest pt-1">Location & Contact</p>
             <Input label="Address" value={form.address} onChange={v => setForm(f => ({ ...f, address: v }))} placeholder="123 MG Road, Bangalore, Karnataka" />
+            <Input label="Google Maps URL (optional)" value={form.mapUrl} onChange={v => setForm(f => ({ ...f, mapUrl: v }))} placeholder="https://maps.google.com/?q=..." />
             <Input label="Phone Number" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} placeholder="+91 98765 43210" type="tel" />
 
             {/* Section: Cuisine & Timings */}

@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import DishManagerPanel from "../components/DishManagerPanel";
+import { getDirectImageUrl } from "../utils/imageHelper";
 
 export default function RestaurantDashboard() {
   const { user, ownerRestaurant, logout } = useAuth();
@@ -48,7 +49,7 @@ export default function RestaurantDashboard() {
       ctx.fillText(restaurantData?.name || "", 150, 300);
       ctx.font = "12px Inter, sans-serif";
       ctx.fillStyle = "#FF6B00";
-      ctx.fillText("Scan karo, khao maro!", 150, 325);
+      ctx.fillText("Scan to View Menu & Calculate Bill", 150, 325);
       const link = document.createElement("a");
       link.download = `menubabu-qr.png`;
       link.href = canvas.toDataURL("image/png");
@@ -104,7 +105,7 @@ export default function RestaurantDashboard() {
       <header className="sticky top-0 z-20 glass border-b border-white/30 px-4 py-3">
         <div className="max-w-4xl mx-auto flex items-center gap-3">
           <img
-            src={restaurantData?.logoUrl}
+            src={getDirectImageUrl(restaurantData?.logoUrl)}
             alt=""
             className="w-10 h-10 rounded-xl object-cover bg-orange-100"
             onError={e => e.target.src = "https://placehold.co/40x40/FF6B00/fff?text=🍽"}

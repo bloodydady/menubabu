@@ -7,6 +7,7 @@ import {
   MapPin, Clock, Phone, ChevronRight, ArrowLeft,
   Share2, Star, UtensilsCrossed, Tag, Info
 } from "lucide-react";
+import { getDirectImageUrl } from "../utils/imageHelper";
 
 const CATEGORY_EMOJIS = {
   Starters: "🥗",
@@ -129,7 +130,7 @@ export default function RestaurantHome() {
           <>
             {!imgLoaded && <div className="absolute inset-0 shimmer" />}
             <img
-              src={restaurant.bannerUrl}
+              src={getDirectImageUrl(restaurant.bannerUrl)}
               alt="banner"
               className={`w-full h-full object-cover transition-opacity duration-500 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
               onLoad={() => setImgLoaded(true)}
@@ -187,7 +188,7 @@ export default function RestaurantHome() {
           <div className="p-5 flex items-start gap-4">
             <div className="relative flex-shrink-0">
               <img
-                src={restaurant.logoUrl}
+                src={getDirectImageUrl(restaurant.logoUrl)}
                 alt={restaurant.name}
                 className="w-20 h-20 rounded-2xl object-cover border-4 border-white shadow-lg bg-orange-50"
                 onError={e => { e.target.src = `https://placehold.co/80x80/FFF3E0/FF6B00?text=${restaurant.name[0]}`; }}
@@ -251,7 +252,7 @@ export default function RestaurantHome() {
               icon={<MapPin size={16} className="text-orange-500" />}
               label="Address"
               value={restaurant.address}
-              isLink={`https://maps.google.com/?q=${encodeURIComponent(restaurant.address)}`}
+              isLink={restaurant.mapUrl || `https://maps.google.com/?q=${encodeURIComponent(restaurant.address)}`}
               linkLabel="Get Directions →"
             />
           )}

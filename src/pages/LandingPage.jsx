@@ -61,7 +61,7 @@ const plans = [
   },
   {
     name: "Menubabu Premium",
-    price: "₹199",
+    price: "₹149",
     period: "per month (after trial)",
     color: "from-orange-500 to-red-700",
     border: "border-orange-400",

@@ -2,11 +2,12 @@ import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   collection, addDoc, updateDoc, deleteDoc, doc,
-  serverTimestamp, onSnapshot, query, orderBy
+  serverTimestamp, onSnapshot, query, orderBy, getDocs
 } from "firebase/firestore";
 import { db } from "../firebase";
 import toast from "react-hot-toast";
 import { Plus, Edit2, Trash2, X } from "lucide-react";
+import { getDirectImageUrl } from "../utils/imageHelper";
 
 const CATEGORIES = [
   "Paneer Special",
@@ -34,6 +35,7 @@ export default function DishManagerPanel({ restaurant, isOwnerView = false }) {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
   const [showModal, setShowModal] = useState(false);
+  const [showCopyModal, setShowCopyModal] = useState(false);
   const [editDish, setEditDish] = useState(null);
 
   useEffect(() => {
@@ -100,8 +102,14 @@ export default function DishManagerPanel({ restaurant, isOwnerView = false }) {
         ))}
       </div>
 
-      {/* Add Dish button */}
-      <div className="flex justify-end mb-4">
+      {/* Add / Copy buttons */}
+      <div className="flex justify-end gap-2 mb-4 flex-wrap">
+        <button
+          onClick={() => setShowCopyModal(true)}
+          className="flex items-center gap-2 border-2 border-orange-200 text-orange-600 hover:bg-orange-50 text-sm font-semibold px-4 py-2.5 rounded-xl transition-all active:scale-95"
+        >
+          📋 Copy from Another Restaurant
+        </button>
         <button
           onClick={() => { setEditDish(null); setShowModal(true); }}
           className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all active:scale-95 shadow-md shadow-orange-200"
@@ -137,7 +145,7 @@ export default function DishManagerPanel({ restaurant, isOwnerView = false }) {
                 <div className="flex gap-3 p-3">
                   <div className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-orange-50">
                     <img
-                      src={dish.imageUrl}
+                      src={getDirectImageUrl(dish.imageUrl)}
                       alt={dish.name}
                       className="w-full h-full object-cover"
                       loading="lazy"
@@ -201,6 +209,16 @@ export default function DishManagerPanel({ restaurant, isOwnerView = false }) {
             restaurantId={restaurant.id}
             dish={editDish}
             onClose={() => { setShowModal(false); setEditDish(null); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Copy Dishes Modal */}
+      <AnimatePresence>
+        {showCopyModal && (
+          <CopyDishesModal
+            currentRestaurantId={restaurant.id}
+            onClose={() => setShowCopyModal(false)}
           />
         )}
       </AnimatePresence>
@@ -396,7 +414,7 @@ function DishModal({ restaurantId, dish, onClose }) {
               <label className="text-sm font-medium text-gray-700 mb-1 block">Image URL</label>
               <input value={form.imageUrl} onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-orange-300" placeholder="https://images.unsplash.com/..." />
               {form.imageUrl && (
-                <img src={form.imageUrl} alt="" className="w-20 h-20 rounded-xl object-cover mt-2 border-2 border-orange-100" onError={e => e.target.style.display = 'none'} />
+                <img src={getDirectImageUrl(form.imageUrl)} alt="" className="w-20 h-20 rounded-xl object-cover mt-2 border-2 border-orange-100" onError={e => e.target.style.display = 'none'} />
               )}
             </div>
             <div className="flex gap-6">
@@ -430,6 +448,196 @@ function DishModal({ restaurantId, dish, onClose }) {
               {saving ? "Saving..." : isEdit ? "Update Dish" : "Add Dish"}
             </button>
           </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function CopyDishesModal({ currentRestaurantId, onClose }) {
+  const [otherRestaurants, setOtherRestaurants] = useState([]);
+  const [selectedRestId, setSelectedRestId] = useState("");
+  const [dishesToCopy, setDishesToCopy] = useState([]);
+  const [selectedDishIds, setSelectedDishIds] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [copying, setCopying] = useState(false);
+
+  useEffect(() => {
+    const fetchRestaurants = async () => {
+      try {
+        const snap = await getDocs(collection(db, "restaurants"));
+        const list = snap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(r => r.id !== currentRestaurantId);
+        setOtherRestaurants(list);
+      } catch (e) {
+        toast.error("Failed to load restaurants");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRestaurants();
+  }, [currentRestaurantId]);
+
+  useEffect(() => {
+    if (!selectedRestId) {
+      setDishesToCopy([]);
+      setSelectedDishIds({});
+      return;
+    }
+    const fetchDishes = async () => {
+      setLoading(true);
+      try {
+        const snap = await getDocs(collection(db, "restaurants", selectedRestId, "dishes"));
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setDishesToCopy(list);
+        // Select all by default
+        const initialSelection = {};
+        list.forEach(d => { initialSelection[d.id] = true; });
+        setSelectedDishIds(initialSelection);
+      } catch (e) {
+        toast.error("Failed to load dishes");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDishes();
+  }, [selectedRestId]);
+
+  const handleCopy = async () => {
+    const idsToCopy = Object.keys(selectedDishIds).filter(id => selectedDishIds[id]);
+    if (idsToCopy.length === 0) return toast.error("Please select at least one dish to copy");
+    setCopying(true);
+    try {
+      let count = 0;
+      for (const dishId of idsToCopy) {
+        const dish = dishesToCopy.find(d => d.id === dishId);
+        if (dish) {
+          const { id, createdAt, ...dishData } = dish;
+          await addDoc(collection(db, "restaurants", currentRestaurantId, "dishes"), {
+            ...dishData,
+            createdAt: serverTimestamp(),
+          });
+          count++;
+        }
+      }
+      toast.success(`Successfully copied ${count} dishes! 🎉`);
+      onClose();
+    } catch (e) {
+      toast.error("Failed to copy dishes");
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  const toggleSelectDish = (id) => {
+    setSelectedDishIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleSelectAll = () => {
+    const allSelected = dishesToCopy.every(d => selectedDishIds[d.id]);
+    const nextSelection = {};
+    dishesToCopy.forEach(d => {
+      nextSelection[d.id] = !allSelected;
+    });
+    setSelectedDishIds(nextSelection);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 20 }}
+        className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="font-heading text-lg font-bold text-gray-900">Copy Dishes</h2>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100"><X size={18} /></button>
+        </div>
+
+        <div className="p-6 flex-1 overflow-y-auto space-y-4">
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Select Restaurant to copy from</label>
+            <select
+              value={selectedRestId}
+              onChange={e => setSelectedRestId(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm bg-white outline-none focus:ring-2 focus:ring-orange-300"
+            >
+              <option value="">-- Choose Restaurant --</option>
+              {otherRestaurants.map(r => (
+                <option key={r.id} value={r.id}>{r.name} ({r.ownerEmail})</option>
+              ))}
+            </select>
+          </div>
+
+          {loading && selectedRestId && (
+            <div className="flex justify-center py-8">
+              <div className="w-8 h-8 border-4 border-orange-100 border-t-orange-500 rounded-full animate-spin" />
+            </div>
+          )}
+
+          {!loading && selectedRestId && dishesToCopy.length === 0 && (
+            <p className="text-center text-sm text-gray-400 py-8">This restaurant has no dishes to copy.</p>
+          )}
+
+          {!loading && dishesToCopy.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase">Dishes Available ({dishesToCopy.length})</span>
+                <button
+                  type="button"
+                  onClick={toggleSelectAll}
+                  className="text-xs font-bold text-orange-600 hover:text-orange-700"
+                >
+                  {dishesToCopy.every(d => selectedDishIds[d.id]) ? "Deselect All" : "Select All"}
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {dishesToCopy.map(d => (
+                  <div
+                    key={d.id}
+                    onClick={() => toggleSelectDish(d.id)}
+                    className={`flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition-all ${
+                      selectedDishIds[d.id]
+                        ? "bg-orange-50/50 border-orange-200"
+                        : "bg-white border-gray-100 hover:border-gray-200"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!selectedDishIds[d.id]}
+                      onChange={() => {}} // Handled by outer click
+                      className="accent-orange-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm text-gray-800 truncate">{d.name}</div>
+                      <div className="text-xs text-gray-400 truncate">{d.category} • ₹{d.price}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t border-gray-100 flex gap-3">
+          <button onClick={onClose} className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50">Cancel</button>
+          <button
+            onClick={handleCopy}
+            disabled={copying || !selectedRestId || dishesToCopy.length === 0}
+            className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-semibold text-sm hover:bg-orange-600 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+          >
+            {copying ? "Copying..." : `Copy Selected (${Object.values(selectedDishIds).filter(Boolean).length})`}
+          </button>
         </div>
       </motion.div>
     </motion.div>

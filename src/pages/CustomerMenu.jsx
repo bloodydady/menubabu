@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, doc, getDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "../firebase";
-import { ShoppingCart, X, Plus, Minus, Printer, Trash2, ArrowLeft } from "lucide-react";
+import { ShoppingCart, X, Plus, Minus, Printer, Trash2, ArrowLeft, Receipt } from "lucide-react";
+import { getDirectImageUrl } from "../utils/imageHelper";
 
 const CATEGORIES = [
   "Paneer Special",
@@ -175,12 +176,12 @@ export default function CustomerMenu() {
     nonveg: lang === "hi" ? "मांसाहारी" : "Non-Veg",
     soldOut: lang === "hi" ? "बिक गया" : "SOLD OUT",
     addToCart: lang === "hi" ? "जोड़ें" : "Add",
-    cart: lang === "hi" ? "कार्ट" : "Cart",
-    total: lang === "hi" ? "कुल" : "Total",
-    showWaiter: lang === "hi" ? "वेटर को दिखाएं 🙏" : "Show This to Waiter 🙏",
-    taxes: lang === "hi" ? "टैक्स लागू" : "Taxes as applicable",
-    emptyCart: lang === "hi" ? "कार्ट खाली है" : "Cart is empty",
-    orderSummary: lang === "hi" ? "ऑर्डर सारांश" : "Order Summary",
+    cart: lang === "hi" ? "आइटम लिस्ट" : "Selected Items",
+    total: lang === "hi" ? "कुल बिल" : "Total Bill",
+    showWaiter: lang === "hi" ? "टोटल बिल वेटर को दिखाएं 🙏" : "Show Bill to Waiter 🙏",
+    taxes: lang === "hi" ? "टैक्स (यदि लागू हो)" : "Taxes (if applicable)",
+    emptyCart: lang === "hi" ? "कोई आइटम सिलेक्ट नहीं है" : "No items selected",
+    orderSummary: lang === "hi" ? "बिल विवरण" : "Bill Summary",
   };
 
   return (
@@ -189,7 +190,7 @@ export default function CustomerMenu() {
       <header className="sticky top-0 z-30 glass border-b border-white/30 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <img
-            src={restaurant.logoUrl || "/logo.jpeg"}
+            src={getDirectImageUrl(restaurant.logoUrl) || "/logo.jpeg"}
             alt={restaurant.name}
             className="w-12 h-12 rounded-full object-cover border-2 border-orange-200 shadow flex-shrink-0"
             onError={e => { e.target.onerror = null; e.target.src = "/logo.jpeg"; }}
@@ -308,11 +309,11 @@ export default function CustomerMenu() {
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-                  <ShoppingCart size={18} />
+                  <Receipt size={18} />
                 </div>
                 <div className="text-left">
-                  <div className="font-bold text-sm">{totalItems} {totalItems === 1 ? "item" : "items"}</div>
-                  <div className="text-white/70 text-xs">Tap to view cart</div>
+                  <div className="font-bold text-sm">{totalItems} {totalItems === 1 ? "Item" : "Items"} Selected</div>
+                  <div className="text-white/70 text-xs">{lang === "hi" ? "कुल बिल देखने के लिए दबाएं" : "Tap to check total bill"}</div>
                 </div>
               </div>
               <div className="font-black text-xl">₹{totalPrice}</div>
@@ -370,7 +371,7 @@ export default function CustomerMenu() {
                   </div>
                 ) : cartItems.map(({ dish, portion, qty, price }) => (
                   <div key={dish.id + (portion ? `-${portion}` : "")} className="flex items-center gap-3 p-3 bg-orange-50 rounded-2xl">
-                    <img src={dish.imageUrl} alt={dish.name} className="w-12 h-12 rounded-xl object-cover bg-orange-100" onError={e => e.target.src = "https://placehold.co/48x48/FFF3E0/FF6B00?text=🍽"} />
+                    <img src={getDirectImageUrl(dish.imageUrl)} alt={dish.name} className="w-12 h-12 rounded-xl object-cover bg-orange-100" onError={e => e.target.src = "https://placehold.co/48x48/FFF3E0/FF6B00?text=🍽"} />
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm text-gray-900 truncate">
                         {lang === "hi" && dish.nameHindi ? dish.nameHindi : dish.name}
@@ -514,7 +515,7 @@ function DishCard({ dish, lang, cart, onAdd, onRemove, soldOutLabel }) {
         <div className="relative w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-orange-50">
           {!imgLoaded && <div className="absolute inset-0 shimmer" />}
           <img
-            src={dish.imageUrl}
+            src={getDirectImageUrl(dish.imageUrl)}
             alt={dish.name}
             loading="lazy"
             className={`w-full h-full object-cover transition-opacity duration-300 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
