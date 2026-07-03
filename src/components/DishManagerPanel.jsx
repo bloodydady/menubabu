@@ -6,7 +6,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import toast from "react-hot-toast";
-import { Plus, Edit2, Trash2, X } from "lucide-react";
+import { Plus, Edit2, Trash2, X, Search } from "lucide-react";
 import { getDirectImageUrl } from "../utils/imageHelper";
 
 const CATEGORIES = [
@@ -461,6 +461,7 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
   const [selectedDishIds, setSelectedDishIds] = useState({});
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
+  const [dishSearch, setDishSearch] = useState("");
 
   useEffect(() => {
     const fetchRestaurants = async () => {
@@ -483,6 +484,7 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
     if (!selectedRestId) {
       setDishesToCopy([]);
       setSelectedDishIds({});
+      setDishSearch("");
       return;
     }
     const fetchDishes = async () => {
@@ -491,7 +493,7 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
         const snap = await getDocs(collection(db, "restaurants", selectedRestId, "dishes"));
         const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setDishesToCopy(list);
-        // Select all by default
+        setDishSearch("");
         const initialSelection = {};
         list.forEach(d => { initialSelection[d.id] = true; });
         setSelectedDishIds(initialSelection);
@@ -534,14 +536,22 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
     setSelectedDishIds(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const filteredDishesToCopy = dishSearch
+    ? dishesToCopy.filter(d =>
+        d.name?.toLowerCase().includes(dishSearch.toLowerCase()) ||
+        (d.category || "").toLowerCase().includes(dishSearch.toLowerCase()) ||
+        (d.nameHindi || "").includes(dishSearch)
+      )
+    : dishesToCopy;
+
   const toggleSelectAll = () => {
-    const allSelected = dishesToCopy.every(d => selectedDishIds[d.id]);
-    const nextSelection = {};
-    dishesToCopy.forEach(d => {
-      nextSelection[d.id] = !allSelected;
-    });
+    const allSelected = filteredDishesToCopy.every(d => selectedDishIds[d.id]);
+    const nextSelection = { ...selectedDishIds };
+    filteredDishesToCopy.forEach(d => { nextSelection[d.id] = !allSelected; });
     setSelectedDishIds(nextSelection);
   };
+
+  const selectedCount = Object.values(selectedDishIds).filter(Boolean).length;
 
   return (
     <motion.div
@@ -558,14 +568,18 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
         className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-heading text-lg font-bold text-gray-900">Copy Dishes</h2>
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h2 className="font-heading text-lg font-bold text-gray-900">📋 Copy Dishes</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Search & copy dishes from any restaurant</p>
+          </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100"><X size={18} /></button>
         </div>
 
-        <div className="p-6 flex-1 overflow-y-auto space-y-4">
+        <div className="p-5 flex-1 overflow-y-auto space-y-4">
+          {/* Restaurant selector */}
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Select Restaurant to copy from</label>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Select Restaurant</label>
             <select
               value={selectedRestId}
               onChange={e => setSelectedRestId(e.target.value)}
@@ -585,42 +599,88 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
           )}
 
           {!loading && selectedRestId && dishesToCopy.length === 0 && (
-            <p className="text-center text-sm text-gray-400 py-8">This restaurant has no dishes to copy.</p>
+            <p className="text-center text-sm text-gray-400 py-8">This restaurant has no dishes.</p>
           )}
 
           {!loading && dishesToCopy.length > 0 && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                <span className="text-xs font-semibold text-gray-500 uppercase">Dishes Available ({dishesToCopy.length})</span>
+              {/* Search dishes */}
+              <div className="relative">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-400" />
+                <input
+                  type="text"
+                  value={dishSearch}
+                  onChange={e => setDishSearch(e.target.value)}
+                  placeholder="Search dishes by name or category..."
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-orange-200 text-sm bg-orange-50/30 outline-none focus:ring-2 focus:ring-orange-300"
+                />
+                {dishSearch && (
+                  <button onClick={() => setDishSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-500 uppercase">
+                  {dishSearch ? `${filteredDishesToCopy.length} found` : `${dishesToCopy.length} dishes`}
+                </span>
                 <button
                   type="button"
                   onClick={toggleSelectAll}
                   className="text-xs font-bold text-orange-600 hover:text-orange-700"
                 >
-                  {dishesToCopy.every(d => selectedDishIds[d.id]) ? "Deselect All" : "Select All"}
+                  {filteredDishesToCopy.every(d => selectedDishIds[d.id]) ? "Deselect All" : "Select All"}
                 </button>
               </div>
 
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                {dishesToCopy.map(d => (
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {filteredDishesToCopy.length === 0 ? (
+                  <p className="text-center text-sm text-gray-400 py-4">No matches for "{dishSearch}"</p>
+                ) : filteredDishesToCopy.map(d => (
                   <div
                     key={d.id}
                     onClick={() => toggleSelectDish(d.id)}
                     className={`flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition-all ${
                       selectedDishIds[d.id]
-                        ? "bg-orange-50/50 border-orange-200"
-                        : "bg-white border-gray-100 hover:border-gray-200"
+                        ? "bg-orange-50/60 border-orange-300"
+                        : "bg-white border-gray-100 hover:border-orange-200"
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={!!selectedDishIds[d.id]}
-                      onChange={() => {}} // Handled by outer click
-                      className="accent-orange-500"
+                      onChange={() => {}}
+                      className="accent-orange-500 flex-shrink-0"
                     />
+                    {/* Dish image */}
+                    {d.imageUrl ? (
+                      <img
+                        src={getDirectImageUrl(d.imageUrl)}
+                        alt={d.name}
+                        className="w-10 h-10 rounded-xl object-cover flex-shrink-0 bg-orange-50"
+                        onError={e => { e.target.style.display = "none"; }}
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-lg flex-shrink-0">🍽️</div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm text-gray-800 truncate">{d.name}</div>
-                      <div className="text-xs text-gray-400 truncate">{d.category} • ₹{d.price}</div>
+                      {/* Show all prices */}
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {d.hasPortions && d.portions ? (
+                          Object.entries(d.portions)
+                            .filter(([, price]) => price && Number(price) > 0)
+                            .map(([portion, price]) => (
+                              <span key={portion} className="text-[9px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full">
+                                {portion === "half" ? "Half" : portion === "quarter" ? "Qtr" : "Full"} ₹{price}
+                              </span>
+                            ))
+                        ) : (
+                          <span className="text-xs text-orange-600 font-bold">₹{d.price}</span>
+                        )}
+                        <span className="text-[9px] text-gray-400 ml-1">{d.category}</span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -629,14 +689,14 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
           )}
         </div>
 
-        <div className="p-6 border-t border-gray-100 flex gap-3">
+        <div className="p-5 border-t border-gray-100 flex gap-3">
           <button onClick={onClose} className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50">Cancel</button>
           <button
             onClick={handleCopy}
-            disabled={copying || !selectedRestId || dishesToCopy.length === 0}
-            className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-semibold text-sm hover:bg-orange-600 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+            disabled={copying || !selectedRestId || selectedCount === 0}
+            className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-semibold text-sm hover:bg-orange-600 disabled:opacity-50 transition-all"
           >
-            {copying ? "Copying..." : `Copy Selected (${Object.values(selectedDishIds).filter(Boolean).length})`}
+            {copying ? "Copying..." : `Copy ${selectedCount} Dish${selectedCount !== 1 ? "es" : ""}`}
           </button>
         </div>
       </motion.div>

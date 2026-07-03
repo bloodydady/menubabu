@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, doc, getDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "../firebase";
-import { ShoppingCart, X, Plus, Minus, Printer, Trash2, ArrowLeft, Receipt } from "lucide-react";
+import { ShoppingCart, X, Plus, Minus, Printer, Trash2, ArrowLeft, Receipt, Search } from "lucide-react";
 import { getDirectImageUrl } from "../utils/imageHelper";
 
 const CATEGORIES = [
@@ -63,6 +63,8 @@ export default function CustomerMenu() {
   const [cart, setCart] = useState({});
   const [cartOpen, setCartOpen] = useState(false);
   const [waiterModal, setWaiterModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const categoryRefs = useRef({});
 
   // Always fetch from Firestore — no demo mode
@@ -132,6 +134,15 @@ export default function CustomerMenu() {
   const filteredDishes = dishes.filter(d => {
     if (filter === "Veg" && !d.isVeg) return false;
     if (filter === "NonVeg" && d.isVeg) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        d.name.toLowerCase().includes(q) ||
+        (d.nameHindi || "").includes(searchQuery) ||
+        (d.description || "").toLowerCase().includes(q) ||
+        (d.category || "").toLowerCase().includes(q)
+      );
+    }
     return true;
   });
 
@@ -280,27 +291,68 @@ export default function CustomerMenu() {
           </div>
         </div>
 
-        {/* Filter Bar */}
-        <div className="max-w-2xl mx-auto px-4 pb-2 flex gap-2">
-          {[
-            { key: "All", label: t.all },
-            { key: "Veg", label: `🟢 ${t.veg}` },
-            { key: "NonVeg", label: `🔴 ${t.nonveg}` },
-          ].map(f => (
-            <motion.button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              whileTap={{ scale: 0.95 }}
-              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                filter === f.key
-                  ? "bg-orange-500 text-white shadow-md shadow-orange-200"
-                  : "bg-white border border-gray-200 text-gray-600 hover:border-orange-300"
-              }`}
-            >
-              {f.label}
-            </motion.button>
-          ))}
+        {/* Filter Bar + Search */}
+        <div className="max-w-2xl mx-auto px-4 pb-2 flex gap-2 items-center">
+          <div className="flex gap-2 flex-1 overflow-x-auto no-scrollbar">
+            {[
+              { key: "All", label: t.all },
+              { key: "Veg", label: `🟢 ${t.veg}` },
+              { key: "NonVeg", label: `🔴 ${t.nonveg}` },
+            ].map(f => (
+              <motion.button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                whileTap={{ scale: 0.95 }}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  filter === f.key
+                    ? "bg-orange-500 text-white shadow-md shadow-orange-200"
+                    : "bg-white border border-gray-200 text-gray-600 hover:border-orange-300"
+                }`}
+              >
+                {f.label}
+              </motion.button>
+            ))}
+          </div>
+          <button
+            onClick={() => setSearchOpen(s => !s)}
+            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+              searchOpen ? "bg-orange-500 text-white" : "bg-white border border-gray-200 text-gray-500"
+            }`}
+          >
+            <Search size={15} />
+          </button>
         </div>
+
+        {/* Search Input (expandable) */}
+        <AnimatePresence>
+          {searchOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="max-w-2xl mx-auto px-4 pb-3">
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-400" />
+                  <input
+                    autoFocus
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder={lang === "hi" ? "डिश खोजें..." : "Search dishes..."}
+                    className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-orange-200 text-sm bg-orange-50/40 outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* CATEGORY NAV */}
@@ -324,13 +376,41 @@ export default function CustomerMenu() {
 
       {/* MENU CONTENT */}
       <div className="max-w-2xl mx-auto px-4 pt-4">
-        {Object.keys(groupedByCategory).length === 0 ? (
+        {/* Search results banner */}
+        {searchQuery && (
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-500">
+              <span className="font-semibold text-orange-600">{filteredDishes.length}</span>
+              {" "}{lang === "hi" ? `"${searchQuery}" के लिए परिणाम` : `results for "${searchQuery}"`}
+            </p>
+            <button onClick={() => { setSearchQuery(""); setSearchOpen(false); }} className="text-xs text-orange-500 font-medium hover:underline">
+              {lang === "hi" ? "साफ करें" : "Clear"}
+            </button>
+          </div>
+        )}
+        {filteredDishes.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
-            <div className="text-6xl mb-3">🍽️</div>
-            <p className="font-medium text-lg">No dishes available</p>
-            <p className="text-sm">Try changing the filter</p>
+            <div className="text-6xl mb-3">{searchQuery ? "🔍" : "🍽️"}</div>
+            <p className="font-medium text-lg">{searchQuery ? `No dishes match "${searchQuery}"` : "No dishes available"}</p>
+            <p className="text-sm">{searchQuery ? "Try a different word" : "Try changing the filter"}</p>
+          </div>
+        ) : searchQuery ? (
+          /* Flat search results */
+          <div className="space-y-3 mb-8">
+            {filteredDishes.map((dish) => (
+              <DishCard
+                key={dish.id}
+                dish={dish}
+                lang={lang}
+                cart={cart}
+                onAdd={addToCart}
+                onRemove={removeFromCart}
+                soldOutLabel={t.soldOut}
+              />
+            ))}
           </div>
         ) : (
+          /* Grouped by category */
           Object.entries(groupedByCategory).map(([cat, catDishes]) => (
             <div
               key={cat}
@@ -557,29 +637,38 @@ export default function CustomerMenu() {
 
 function DishCard({ dish, lang, cart, onAdd, onRemove, soldOutLabel }) {
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   // Parse available portions if dish has portions
   const availablePortions = Object.entries(dish.portions || {})
     .filter(([_, price]) => price && Number(price) > 0)
-    .map(([name]) => name); // ['half', 'full', 'quarter']
+    .map(([name]) => name);
 
   const [selectedPortion, setSelectedPortion] = useState(availablePortions[0] || "full");
 
-  // Determine active item pricing and quantity
   const hasPortions = dish.hasPortions && availablePortions.length > 0;
   const activePortion = hasPortions ? selectedPortion : null;
   const currentPrice = hasPortions ? Number(dish.portions[selectedPortion]) : Number(dish.price);
   const cartKey = dish.id + (activePortion ? `-${activePortion}` : "");
   const qty = cart[cartKey]?.qty || 0;
 
+  const portionLabel = (p) => {
+    if (p === "half") return lang === "hi" ? "हाफ" : "Half";
+    if (p === "quarter") return lang === "hi" ? "क्वार्टर" : "Quarter";
+    return lang === "hi" ? "फुल" : "Full";
+  };
+
+  const desc = lang === "hi" && dish.descriptionHindi ? dish.descriptionHindi : dish.description;
+
   return (
     <motion.div
       layout
       className={`bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 transition-all ${dish.isSoldOut ? "opacity-70" : "hover:shadow-md"}`}
     >
+      {/* Top: image + info */}
       <div className="flex gap-3 p-3">
-        {/* Image */}
-        <div className="relative w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-orange-50">
+        {/* BIGGER image */}
+        <div className="relative w-28 h-28 rounded-2xl overflow-hidden flex-shrink-0 bg-orange-50">
           {!imgLoaded && <div className="absolute inset-0 shimmer" />}
           <img
             src={getDirectImageUrl(dish.imageUrl)}
@@ -587,11 +676,11 @@ function DishCard({ dish, lang, cart, onAdd, onRemove, soldOutLabel }) {
             loading="lazy"
             className={`w-full h-full object-cover transition-opacity duration-300 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
             onLoad={() => setImgLoaded(true)}
-            onError={e => { e.target.src = "https://placehold.co/96x96/FFF3E0/FF6B00?text=🍽"; setImgLoaded(true); }}
+            onError={e => { e.target.src = "https://placehold.co/112x112/FFF3E0/FF6B00?text=\ud83c\udf7d"; setImgLoaded(true); }}
           />
           {dish.isSoldOut && (
-            <div className="sold-out-overlay rounded-xl">
-              <span className="text-white text-[9px] font-bold bg-red-500 px-1.5 py-0.5 rounded-full">{soldOutLabel}</span>
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-2xl">
+              <span className="text-white text-[10px] font-bold bg-red-500 px-2 py-1 rounded-full">{soldOutLabel}</span>
             </div>
           )}
         </div>
@@ -600,7 +689,7 @@ function DishCard({ dish, lang, cart, onAdd, onRemove, soldOutLabel }) {
         <div className="flex-1 min-w-0 flex flex-col justify-between">
           <div>
             <div className="flex items-start gap-1.5 mb-0.5">
-              <div className={dish.isVeg ? "veg-dot mt-0.5" : "nonveg-dot mt-0.5"} />
+              <div className={dish.isVeg ? "veg-dot mt-1 flex-shrink-0" : "nonveg-dot mt-1 flex-shrink-0"} />
               <div>
                 <div className="font-semibold text-gray-900 text-sm leading-snug">
                   {lang === "hi" && dish.nameHindi ? dish.nameHindi : dish.name}
@@ -610,61 +699,79 @@ function DishCard({ dish, lang, cart, onAdd, onRemove, soldOutLabel }) {
                 )}
               </div>
             </div>
-            <p className="text-gray-400 text-xs line-clamp-2 mt-0.5 leading-relaxed">
-              {lang === "hi" && dish.descriptionHindi ? dish.descriptionHindi : dish.description}
-            </p>
 
-            {/* Portion selectors */}
-            {hasPortions && (
-              <div className="flex gap-1.5 mt-2 mb-1">
+            {/* Description - expandable */}
+            {desc && (
+              <div className="mt-1">
+                <p className={`text-gray-400 text-xs leading-relaxed ${expanded ? "" : "line-clamp-2"}`}>{desc}</p>
+                {desc.length > 60 && (
+                  <button
+                    onClick={() => setExpanded(e => !e)}
+                    className="text-[10px] text-orange-500 font-semibold mt-0.5"
+                  >
+                    {expanded ? "Show less" : "Read more"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ALL portion prices displayed */}
+            {hasPortions ? (
+              <div className="flex flex-wrap gap-1.5 mt-2">
                 {availablePortions.map(p => (
                   <button
                     key={p}
                     onClick={() => setSelectedPortion(p)}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all border ${
                       selectedPortion === p
-                        ? "bg-orange-100 text-orange-600 border border-orange-300"
-                        : "bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100"
+                        ? "bg-orange-500 text-white border-orange-500 shadow-sm"
+                        : "bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100"
                     }`}
                   >
-                    {p === "half" ? (lang === "hi" ? "हाफ" : "Half") : p === "quarter" ? (lang === "hi" ? "क्वार्टर" : "Quarter") : (lang === "hi" ? "फुल" : "Full")}
+                    {portionLabel(p)} • ₹{dish.portions[p]}
                   </button>
                 ))}
               </div>
+            ) : (
+              <div className="font-black text-orange-600 text-base mt-1">₹{dish.price}</div>
             )}
           </div>
 
+          {/* Add / qty controls */}
           <div className="flex items-center justify-between mt-2">
-            <span className="font-black text-orange-600 text-base">₹{currentPrice}</span>
-
-            {dish.isSoldOut ? (
-              <div className="text-xs font-semibold text-red-400 bg-red-50 px-3 py-1.5 rounded-xl border border-red-100">
-                Sold Out
-              </div>
-            ) : qty === 0 ? (
-              <motion.button
-                whileTap={{ scale: 0.92 }}
-                onClick={() => onAdd(dish, activePortion)}
-                className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md shadow-orange-200"
-              >
-                <Plus size={13} /> Add
-              </motion.button>
-            ) : (
-              <motion.div
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl overflow-hidden"
-              >
-                <button onClick={() => onRemove(dish.id, activePortion)} className="w-8 h-8 flex items-center justify-center text-orange-600 hover:bg-orange-100 transition-colors">
-                  <Minus size={14} />
-                </button>
-                <span className="font-black text-orange-700 text-sm min-w-[18px] text-center">{qty}</span>
-                <button onClick={() => onAdd(dish, activePortion)} className="w-8 h-8 flex items-center justify-center bg-orange-500 text-white hover:bg-orange-600 transition-colors">
-                  <Plus size={14} />
-                </button>
-              </motion.div>
+            {hasPortions && (
+              <span className="font-black text-orange-600 text-base">₹{currentPrice}</span>
             )}
+            <div className="ml-auto">
+              {dish.isSoldOut ? (
+                <div className="text-xs font-semibold text-red-400 bg-red-50 px-3 py-1.5 rounded-xl border border-red-100">
+                  Sold Out
+                </div>
+              ) : qty === 0 ? (
+                <motion.button
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => onAdd(dish, activePortion)}
+                  className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md shadow-orange-200"
+                >
+                  <Plus size={13} /> {lang === "hi" ? "जोड़ें" : "Add"}
+                </motion.button>
+              ) : (
+                <motion.div
+                  initial={{ scale: 0.8 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                  className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl overflow-hidden"
+                >
+                  <button onClick={() => onRemove(dish.id, activePortion)} className="w-8 h-8 flex items-center justify-center text-orange-600 hover:bg-orange-100 transition-colors">
+                    <Minus size={14} />
+                  </button>
+                  <span className="font-black text-orange-700 text-sm min-w-[18px] text-center">{qty}</span>
+                  <button onClick={() => onAdd(dish, activePortion)} className="w-8 h-8 flex items-center justify-center bg-orange-500 text-white hover:bg-orange-600 transition-colors">
+                    <Plus size={14} />
+                  </button>
+                </motion.div>
+              )}
+            </div>
           </div>
         </div>
       </div>
