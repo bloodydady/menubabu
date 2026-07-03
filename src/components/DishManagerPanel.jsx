@@ -457,54 +457,47 @@ function DishModal({ restaurantId, dish, onClose }) {
 function CopyDishesModal({ currentRestaurantId, onClose }) {
   const [otherRestaurants, setOtherRestaurants] = useState([]);
   const [selectedRestId, setSelectedRestId] = useState("");
-  const [dishesToCopy, setDishesToCopy] = useState([]);
+  const [allOtherDishes, setAllOtherDishes] = useState([]);
   const [selectedDishIds, setSelectedDishIds] = useState({});
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
   const [dishSearch, setDishSearch] = useState("");
 
   useEffect(() => {
-    const fetchRestaurants = async () => {
-      try {
-        const snap = await getDocs(collection(db, "restaurants"));
-        const list = snap.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(r => r.id !== currentRestaurantId);
-        setOtherRestaurants(list);
-      } catch (e) {
-        toast.error("Failed to load restaurants");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRestaurants();
-  }, [currentRestaurantId]);
-
-  useEffect(() => {
-    if (!selectedRestId) {
-      setDishesToCopy([]);
-      setSelectedDishIds({});
-      setDishSearch("");
-      return;
-    }
-    const fetchDishes = async () => {
+    const fetchAllData = async () => {
       setLoading(true);
       try {
-        const snap = await getDocs(collection(db, "restaurants", selectedRestId, "dishes"));
-        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setDishesToCopy(list);
-        setDishSearch("");
-        const initialSelection = {};
-        list.forEach(d => { initialSelection[d.id] = true; });
-        setSelectedDishIds(initialSelection);
+        const snap = await getDocs(collection(db, "restaurants"));
+        const rests = snap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(r => r.id !== currentRestaurantId);
+        setOtherRestaurants(rests);
+
+        const dishesList = [];
+        await Promise.all(
+          rests.map(async (r) => {
+            try {
+              const dSnap = await getDocs(collection(db, "restaurants", r.id, "dishes"));
+              dSnap.docs.forEach(doc => {
+                dishesList.push({
+                  id: doc.id,
+                  ...doc.data(),
+                  restaurantId: r.id,
+                  restaurantName: r.name,
+                });
+              });
+            } catch (_) {}
+          })
+        );
+        setAllOtherDishes(dishesList);
       } catch (e) {
-        toast.error("Failed to load dishes");
+        toast.error("Failed to load menus");
       } finally {
         setLoading(false);
       }
     };
-    fetchDishes();
-  }, [selectedRestId]);
+    fetchAllData();
+  }, [currentRestaurantId]);
 
   const handleCopy = async () => {
     const idsToCopy = Object.keys(selectedDishIds).filter(id => selectedDishIds[id]);
@@ -513,9 +506,9 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
     try {
       let count = 0;
       for (const dishId of idsToCopy) {
-        const dish = dishesToCopy.find(d => d.id === dishId);
+        const dish = allOtherDishes.find(d => d.id === dishId);
         if (dish) {
-          const { id, createdAt, ...dishData } = dish;
+          const { id, createdAt, restaurantId, restaurantName, ...dishData } = dish;
           await addDoc(collection(db, "restaurants", currentRestaurantId, "dishes"), {
             ...dishData,
             createdAt: serverTimestamp(),
@@ -536,13 +529,19 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
     setSelectedDishIds(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const filteredDishesToCopy = dishSearch
-    ? dishesToCopy.filter(d =>
-        d.name?.toLowerCase().includes(dishSearch.toLowerCase()) ||
-        (d.category || "").toLowerCase().includes(dishSearch.toLowerCase()) ||
-        (d.nameHindi || "").includes(dishSearch)
-      )
-    : dishesToCopy;
+  const filteredDishesToCopy = allOtherDishes.filter(d => {
+    if (selectedRestId && d.restaurantId !== selectedRestId) return false;
+    if (dishSearch) {
+      const q = dishSearch.toLowerCase();
+      return (
+        d.name?.toLowerCase().includes(q) ||
+        (d.category || "").toLowerCase().includes(q) ||
+        (d.nameHindi || "").includes(dishSearch) ||
+        d.restaurantName?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   const toggleSelectAll = () => {
     const allSelected = filteredDishesToCopy.every(d => selectedDishIds[d.id]);
@@ -577,53 +576,55 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
         </div>
 
         <div className="p-5 flex-1 overflow-y-auto space-y-4">
-          {/* Restaurant selector */}
+          {/* Search bar */}
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-400" />
+            <input
+              type="text"
+              value={dishSearch}
+              onChange={e => setDishSearch(e.target.value)}
+              placeholder="Search dishes across all restaurants..."
+              className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-orange-200 text-sm bg-orange-50/30 outline-none focus:ring-2 focus:ring-orange-300"
+            />
+            {dishSearch && (
+              <button onClick={() => setDishSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Restaurant filter */}
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Select Restaurant</label>
+            <label className="text-xs font-semibold text-gray-500 mb-1 block">Filter by Restaurant</label>
             <select
               value={selectedRestId}
               onChange={e => setSelectedRestId(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm bg-white outline-none focus:ring-2 focus:ring-orange-300"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white outline-none focus:ring-2 focus:ring-orange-300"
             >
-              <option value="">-- Choose Restaurant --</option>
+              <option value="">All Restaurants</option>
               {otherRestaurants.map(r => (
                 <option key={r.id} value={r.id}>{r.name} ({r.ownerEmail})</option>
               ))}
             </select>
           </div>
 
-          {loading && selectedRestId && (
-            <div className="flex justify-center py-8">
+          {loading && (
+            <div className="flex justify-center py-12">
               <div className="w-8 h-8 border-4 border-orange-100 border-t-orange-500 rounded-full animate-spin" />
             </div>
           )}
 
-          {!loading && selectedRestId && dishesToCopy.length === 0 && (
-            <p className="text-center text-sm text-gray-400 py-8">This restaurant has no dishes.</p>
+          {!loading && filteredDishesToCopy.length === 0 && (
+            <p className="text-center text-sm text-gray-400 py-8">
+              {dishSearch || selectedRestId ? "No dishes match your filters." : "No dishes available to copy."}
+            </p>
           )}
 
-          {!loading && dishesToCopy.length > 0 && (
+          {!loading && filteredDishesToCopy.length > 0 && (
             <div className="space-y-3">
-              {/* Search dishes */}
-              <div className="relative">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-400" />
-                <input
-                  type="text"
-                  value={dishSearch}
-                  onChange={e => setDishSearch(e.target.value)}
-                  placeholder="Search dishes by name or category..."
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-orange-200 text-sm bg-orange-50/30 outline-none focus:ring-2 focus:ring-orange-300"
-                />
-                {dishSearch && (
-                  <button onClick={() => setDishSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-gray-500 uppercase">
-                  {dishSearch ? `${filteredDishesToCopy.length} found` : `${dishesToCopy.length} dishes`}
+                  {filteredDishesToCopy.length} dishes available
                 </span>
                 <button
                   type="button"
@@ -635,9 +636,7 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
               </div>
 
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                {filteredDishesToCopy.length === 0 ? (
-                  <p className="text-center text-sm text-gray-400 py-4">No matches for "{dishSearch}"</p>
-                ) : filteredDishesToCopy.map(d => (
+                {filteredDishesToCopy.map(d => (
                   <div
                     key={d.id}
                     onClick={() => toggleSelectDish(d.id)}
@@ -653,7 +652,6 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
                       onChange={() => {}}
                       className="accent-orange-500 flex-shrink-0"
                     />
-                    {/* Dish image */}
                     {d.imageUrl ? (
                       <img
                         src={getDirectImageUrl(d.imageUrl)}
@@ -666,8 +664,7 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm text-gray-800 truncate">{d.name}</div>
-                      {/* Show all prices */}
-                      <div className="flex flex-wrap gap-1 mt-0.5">
+                      <div className="flex flex-wrap gap-1 mt-0.5 items-center">
                         {d.hasPortions && d.portions ? (
                           Object.entries(d.portions)
                             .filter(([, price]) => price && Number(price) > 0)
@@ -679,7 +676,10 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
                         ) : (
                           <span className="text-xs text-orange-600 font-bold">₹{d.price}</span>
                         )}
-                        <span className="text-[9px] text-gray-400 ml-1">{d.category}</span>
+                        <span className="text-[9px] text-gray-400 ml-1 truncate max-w-[120px]">{d.category}</span>
+                        <span className="text-[9px] text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded font-bold truncate max-w-[120px] ml-auto">
+                          {d.restaurantName}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -693,7 +693,7 @@ function CopyDishesModal({ currentRestaurantId, onClose }) {
           <button onClick={onClose} className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50">Cancel</button>
           <button
             onClick={handleCopy}
-            disabled={copying || !selectedRestId || selectedCount === 0}
+            disabled={copying || selectedCount === 0}
             className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-semibold text-sm hover:bg-orange-600 disabled:opacity-50 transition-all"
           >
             {copying ? "Copying..." : `Copy ${selectedCount} Dish${selectedCount !== 1 ? "es" : ""}`}
