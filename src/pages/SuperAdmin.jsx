@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc, doc,
@@ -140,6 +141,14 @@ export default function SuperAdmin() {
                   {activeView === item.id && <ChevronRight size={16} className="ml-auto" />}
                 </button>
               ))}
+              <div className="pt-2 border-t border-white/10 mt-2">
+                <Link
+                  to="/"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                >
+                  🏠 Go to Main Website
+                </Link>
+              </div>
             </nav>
             <div className="p-4 border-t border-white/10">
               <div className="flex items-center gap-2 mb-3">
@@ -168,7 +177,7 @@ export default function SuperAdmin() {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Topbar */}
-        <header className="sticky top-0 z-20 glass border-b border-white/30 px-4 py-3 flex items-center gap-3">
+        <header className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm px-4 py-3 flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 rounded-xl hover:bg-orange-50 transition-colors"

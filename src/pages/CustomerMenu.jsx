@@ -160,9 +160,31 @@ export default function CustomerMenu() {
   // Loading state
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "#FFFBF5" }}>
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-orange-100 border-t-orange-500 rounded-full animate-spin" />
-        <p className="font-hindi text-orange-600">मेनू लोड हो रहा है...</p>
+      <div className="flex flex-col items-center gap-5">
+        <div className="relative">
+          {/* Outer pulsing ring */}
+          <div className="absolute inset-0 w-20 h-20 rounded-full bg-orange-100 animate-ping opacity-60" />
+          {/* Middle ring */}
+          <div className="absolute inset-2 w-16 h-16 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />
+          {/* Center food emoji */}
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-3xl shadow-lg shadow-orange-200">
+            🍽️
+          </div>
+        </div>
+        <div className="text-center">
+          <p className="font-heading font-bold text-orange-600 text-base">मेनू लोड हो रहा है...</p>
+          <p className="text-gray-400 text-xs mt-1">Loading your delicious menu</p>
+        </div>
+        {/* Animated dots */}
+        <div className="flex gap-1.5">
+          {[0, 1, 2].map(i => (
+            <div
+              key={i}
+              className="w-2 h-2 rounded-full bg-orange-400"
+              style={{ animation: `bounce 1s ease-in-out ${i * 0.2}s infinite` }}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -177,8 +199,14 @@ export default function CustomerMenu() {
 
   if (!restaurant) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "#FFFBF5" }}>
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-orange-100 border-t-orange-500 rounded-full animate-spin" />
+      <div className="flex flex-col items-center gap-5">
+        <div className="relative">
+          <div className="absolute inset-0 w-20 h-20 rounded-full bg-orange-100 animate-ping opacity-60" />
+          <div className="absolute inset-2 w-16 h-16 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-3xl shadow-lg shadow-orange-200">
+            🍽️
+          </div>
+        </div>
         <p className="font-hindi text-orange-600 font-medium">मेनू लोड हो रहा है...</p>
       </div>
     </div>
@@ -266,7 +294,7 @@ export default function CustomerMenu() {
       )}
 
       {/* STICKY HEADER */}
-      <header className="sticky top-0 z-30 glass border-b border-white/30 shadow-sm">
+      <header className="sticky top-0 z-30 bg-white border-b border-orange-100 shadow-md">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <RestaurantLogo
             logoUrl={restaurant.logoUrl}
@@ -341,7 +369,7 @@ export default function CustomerMenu() {
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder={lang === "hi" ? "डिश खोजें..." : "Search dishes..."}
-                    className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-orange-200 text-sm bg-orange-50/40 outline-none focus:ring-2 focus:ring-orange-300"
+                    className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-orange-200 text-sm bg-white shadow-sm outline-none focus:ring-2 focus:ring-orange-300"
                   />
                   {searchQuery && (
                     <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -353,26 +381,28 @@ export default function CustomerMenu() {
             </motion.div>
           )}
         </AnimatePresence>
-      </header>
 
-      {/* CATEGORY NAV */}
-      <div className="sticky top-[104px] z-20 bg-white/90 backdrop-blur border-b border-gray-100">
-        <div className="max-w-2xl mx-auto flex gap-0 overflow-x-auto no-scrollbar">
-          {Object.keys(groupedByCategory).map(cat => (
-            <button
-              key={cat}
-              onClick={() => scrollToCategory(cat)}
-              className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-all ${
-                activeCategory === cat
-                  ? "border-orange-500 text-orange-600"
-                  : "border-transparent text-gray-500 hover:text-orange-500"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
+        {/* CATEGORY NAV */}
+        {!searchQuery && Object.keys(groupedByCategory).length > 0 && (
+          <div className="border-t border-gray-100 bg-white">
+            <div className="max-w-2xl mx-auto flex gap-0 overflow-x-auto no-scrollbar">
+              {Object.keys(groupedByCategory).map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => scrollToCategory(cat)}
+                  className={`flex-shrink-0 px-4 py-3 text-xs font-semibold border-b-2 transition-all uppercase tracking-wider ${
+                    activeCategory === cat
+                      ? "border-orange-500 text-orange-600"
+                      : "border-transparent text-gray-500 hover:text-orange-500"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </header>
 
       {/* MENU CONTENT */}
       <div className="max-w-2xl mx-auto px-4 pt-4">

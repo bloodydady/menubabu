@@ -50,9 +50,27 @@ function ProtectedOwner({ children }) {
 function FullScreenLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{background:'#FFFBF5'}}>
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-14 h-14 rounded-full border-4 border-orange-100 border-t-orange-500 animate-spin" />
-        <p className="font-hindi text-orange-600 font-medium">लोड हो रहा है...</p>
+      <div className="flex flex-col items-center gap-5">
+        <div className="relative">
+          <div className="absolute inset-0 w-20 h-20 rounded-full bg-orange-100 animate-ping opacity-60" />
+          <div className="absolute inset-2 w-16 h-16 rounded-full border-4 border-orange-200 border-t-orange-500 animate-spin" />
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-3xl shadow-lg shadow-orange-200">
+            🍽️
+          </div>
+        </div>
+        <div className="text-center">
+          <p className="font-heading font-bold text-orange-600 text-base">लोड हो रहा है...</p>
+          <p className="text-gray-400 text-xs mt-0.5">Menubabu is getting ready</p>
+        </div>
+        <div className="flex gap-1.5">
+          {[0, 1, 2].map(i => (
+            <div
+              key={i}
+              className="w-2 h-2 rounded-full bg-orange-400"
+              style={{ animation: `bounce 1s ease-in-out ${i * 0.2}s infinite` }}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

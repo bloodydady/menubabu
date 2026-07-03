@@ -291,61 +291,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* PRICING */}
-      <section className="py-20 px-4">
-        <div className="max-w-5xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-14"
-          >
-            <span className="text-orange-500 font-semibold text-sm uppercase tracking-widest">Pricing</span>
-            <h2 className="font-heading text-3xl md:text-4xl font-bold text-gray-900 mt-2">Simple, Transparent Plans</h2>
-            <p className="text-gray-500 mt-3">Pehla mahina bilkul free!</p>
-          </motion.div>
-          <div className="grid md:grid-cols-3 gap-6 items-stretch">
-            {plans.map((p, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.12 }}
-                whileHover={{ y: -6 }}
-                className={`rounded-3xl overflow-hidden border ${p.border} flex flex-col ${i === 1 ? "shadow-2xl shadow-orange-200 scale-105" : "shadow-md"}`}
-              >
-                <div className={`bg-gradient-to-br ${p.color} p-6 relative`}>
-                  {p.badge && (
-                    <span className="absolute top-4 right-4 bg-yellow-400 text-gray-900 text-xs font-bold px-3 py-1 rounded-full">
-                      {p.badge}
-                    </span>
-                  )}
-                  <div className={`font-heading text-xl font-bold ${i === 1 ? "text-white" : "text-gray-800"}`}>{p.name}</div>
-                  <div className={`text-4xl font-black mt-1 ${i === 1 ? "text-white" : "text-gray-900"}`}>{p.price}</div>
-                  <div className={`text-sm ${i === 1 ? "text-white/70" : "text-gray-500"}`}>{p.period}</div>
-                </div>
-                <div className="bg-white p-6 flex-1 flex flex-col">
-                  <ul className="space-y-3 flex-1 mb-6">
-                    {p.features.map((f, j) => (
-                      <li key={j} className="flex items-center gap-2 text-sm text-gray-700">
-                        <span className="text-green-500 font-bold">✓</span> {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <button
-                    onClick={() => navigate("/login")}
-                    className={`w-full py-3 rounded-xl font-semibold text-sm transition-all active:scale-95 ${i === 1 ? "bg-orange-500 text-white hover:bg-orange-600" : p.ctaStyle}`}
-                  >
-                    {p.cta}
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* FOOTER */}
       <footer className="bg-gray-900 text-white py-12 px-4">
