@@ -27,6 +27,28 @@ const CATEGORIES = [
   "Desserts"
 ];
 
+function RestaurantLogo({ logoUrl, name, sizeClass = "w-12 h-12 rounded-full" }) {
+  const [error, setError] = useState(false);
+  const directUrl = logoUrl ? getDirectImageUrl(logoUrl) : "";
+
+  if (error || !directUrl) {
+    return (
+      <div className={`${sizeClass} bg-gradient-to-br from-orange-400 to-red-500 flex-shrink-0 flex items-center justify-center text-white font-bold border-2 border-white shadow-md`}>
+        {name ? name[0].toUpperCase() : "🍽️"}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={directUrl}
+      alt={name}
+      className={`${sizeClass} object-cover border-2 border-white shadow-md flex-shrink-0`}
+      onError={() => setError(true)}
+    />
+  );
+}
+
 export default function CustomerMenu() {
   const { restaurantId } = useParams();
   const navigate = useNavigate();
@@ -186,18 +208,63 @@ export default function CustomerMenu() {
 
   return (
     <div className="min-h-screen pb-36" style={{ background: "#FFFBF5" }}>
+
+      {/* ── BANNER HERO (shown at top when scanning QR) ─────────────────── */}
+      {restaurant.bannerUrl ? (
+        <div className="relative h-44 sm:h-56 overflow-hidden">
+          <img
+            src={getDirectImageUrl(restaurant.bannerUrl)}
+            alt={restaurant.name + " banner"}
+            className="w-full h-full object-cover"
+            onError={e => { e.target.style.display = "none"; }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+          {/* Overlay restaurant name on banner */}
+          <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 flex items-end gap-3">
+            <RestaurantLogo
+              logoUrl={restaurant.logoUrl}
+              name={restaurant.name}
+              sizeClass="w-14 h-14 rounded-2xl border-2 border-white shadow-lg"
+            />
+            <div className="flex-1 min-w-0">
+              <h1 className="font-heading text-lg font-bold text-white leading-tight drop-shadow truncate">{restaurant.name}</h1>
+              {restaurant.description && (
+                <p className="text-white/80 text-xs truncate">{restaurant.description}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* No banner – show a gradient strip with logo + name */
+        <div className="relative h-28 bg-gradient-to-br from-orange-500 to-red-700 flex items-end px-4 pb-4">
+          <div className="absolute inset-0 opacity-10 flex items-center justify-center text-[120px] select-none">🍽️</div>
+          <div className="relative flex items-end gap-3">
+            <RestaurantLogo
+              logoUrl={restaurant.logoUrl}
+              name={restaurant.name}
+              sizeClass="w-14 h-14 rounded-2xl border-2 border-white shadow-lg"
+            />
+            <div className="flex-1 min-w-0 pb-0.5">
+              <h1 className="font-heading text-lg font-bold text-white leading-tight truncate">{restaurant.name}</h1>
+              {restaurant.description && (
+                <p className="text-white/70 text-xs truncate">{restaurant.description}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* STICKY HEADER */}
       <header className="sticky top-0 z-30 glass border-b border-white/30 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          <img
-            src={getDirectImageUrl(restaurant.logoUrl) || "/logo.jpeg"}
-            alt={restaurant.name}
-            className="w-12 h-12 rounded-full object-cover border-2 border-orange-200 shadow flex-shrink-0"
-            onError={e => { e.target.onerror = null; e.target.src = "/logo.jpeg"; }}
+          <RestaurantLogo
+            logoUrl={restaurant.logoUrl}
+            name={restaurant.name}
+            sizeClass="w-10 h-10 rounded-xl border-2 border-orange-200"
           />
           <div className="flex-1 min-w-0">
-            <h1 className="font-heading text-lg font-bold text-gray-900 leading-tight truncate">{restaurant.name}</h1>
-            <p className="text-gray-500 text-xs truncate">{restaurant.description}</p>
+            <div className="font-heading text-sm font-bold text-gray-900 leading-tight truncate">{restaurant.name}</div>
+            <p className="text-gray-400 text-xs truncate">{restaurant.description}</p>
           </div>
           {/* Language Toggle */}
           <div className="flex-shrink-0 bg-gray-100 rounded-full p-0.5 flex">
