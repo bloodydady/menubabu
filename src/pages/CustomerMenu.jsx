@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, doc, getDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "../firebase";
-import { ShoppingCart, X, Plus, Minus, Printer, Trash2, ArrowLeft, Receipt, Search } from "lucide-react";
+import { ShoppingCart, X, Plus, Minus, Printer, Trash2, ArrowLeft, Receipt, Search, Users, Share2, UserPlus, Check } from "lucide-react";
 import { getDirectImageUrl } from "../utils/imageHelper";
 
 const CATEGORIES = [
@@ -63,6 +63,7 @@ export default function CustomerMenu() {
   const [cart, setCart] = useState({});
   const [cartOpen, setCartOpen] = useState(false);
   const [waiterModal, setWaiterModal] = useState(false);
+  const [splitBillOpen, setSplitBillOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const categoryRefs = useRef({});
@@ -582,12 +583,21 @@ export default function CustomerMenu() {
                     <span className="font-heading text-lg font-bold">{t.total}</span>
                     <span className="font-black text-2xl text-orange-600">₹{totalPrice}</span>
                   </div>
-                  <button
-                    onClick={() => { setCartOpen(false); setWaiterModal(true); }}
-                    className="w-full bg-gradient-to-r from-orange-500 to-red-700 text-white font-bold py-4 rounded-2xl text-base shadow-lg shadow-orange-200 active:scale-95 transition-all"
-                  >
-                    {t.showWaiter}
-                  </button>
+                  <div className="flex gap-2.5">
+                    <button
+                      onClick={() => { setCartOpen(false); setSplitBillOpen(true); }}
+                      className="flex-1 border-2 border-orange-500 text-orange-600 hover:bg-orange-50 font-bold py-3.5 rounded-2xl text-sm transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                    >
+                      <Users size={16} />
+                      {lang === "hi" ? "बिल बांटें" : "Split Bill"}
+                    </button>
+                    <button
+                      onClick={() => { setCartOpen(false); setWaiterModal(true); }}
+                      className="flex-1 bg-gradient-to-r from-orange-500 to-red-700 text-white font-bold py-3.5 rounded-2xl text-sm shadow-lg shadow-orange-200/50 active:scale-95 transition-all"
+                    >
+                      {t.showWaiter}
+                    </button>
+                  </div>
                 </div>
               )}
             </motion.div>
@@ -661,9 +671,388 @@ export default function CustomerMenu() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* SPLIT BILL MODAL */}
+      <SplitBillModal
+        isOpen={splitBillOpen}
+        onClose={() => setSplitBillOpen(false)}
+        cartItems={cartItems}
+        totalPrice={totalPrice}
+        lang={lang}
+        restaurantName={restaurant.name}
+      />
     </div>
   );
 }
+
+function SplitBillModal({ isOpen, onClose, cartItems, totalPrice, lang, restaurantName }) {
+  const [mode, setMode] = useState("equal"); // "equal" | "itemized"
+  const [numPeople, setNumPeople] = useState(2);
+  const [tipPercent, setTipPercent] = useState(0);
+  const [customTip, setCustomTip] = useState("");
+  const [personNames, setPersonNames] = useState(["Person 1", "Person 2"]);
+  const [itemSharing, setItemSharing] = useState({});
+
+  useEffect(() => {
+    setPersonNames(prev => {
+      const next = [...prev];
+      if (next.length < numPeople) {
+        for (let i = next.length; i < numPeople; i++) {
+          next.push(lang === "hi" ? `दोस्त ${i + 1}` : `Friend ${i + 1}`);
+        }
+      } else if (next.length > numPeople) {
+        next.splice(numPeople);
+      }
+      return next;
+    });
+
+    setItemSharing(prev => {
+      const next = { ...prev };
+      cartItems.forEach(item => {
+        const key = item.dish.id + (item.portion ? `-${item.portion}` : "");
+        if (!next[key] || next[key].length !== numPeople) {
+          next[key] = Array(numPeople).fill(true);
+        }
+      });
+      return next;
+    });
+  }, [numPeople, cartItems, lang]);
+
+  const handleNameChange = (idx, newName) => {
+    setPersonNames(prev => {
+      const next = [...prev];
+      next[idx] = newName;
+      return next;
+    });
+  };
+
+  const toggleItemShare = (itemKey, personIdx) => {
+    setItemSharing(prev => {
+      const next = { ...prev };
+      if (!next[itemKey]) return prev;
+      const updated = [...next[itemKey]];
+      const activeCount = updated.filter(Boolean).length;
+      if (activeCount === 1 && updated[personIdx]) {
+        toast.error(lang === "hi" ? "कम से कम एक व्यक्ति चुनना होगा!" : "At least one person must share this!");
+        return prev;
+      }
+      updated[personIdx] = !updated[personIdx];
+      next[itemKey] = updated;
+      return next;
+    });
+  };
+
+  const calculatedTip = customTip !== "" ? Number(customTip) : (totalPrice * tipPercent) / 100;
+  const billTotalWithTip = totalPrice + calculatedTip;
+  const equalSplitShare = (billTotalWithTip / numPeople).toFixed(2);
+
+  const getShares = () => {
+    const shares = Array(numPeople).fill(0);
+    cartItems.forEach(item => {
+      const key = item.dish.id + (item.portion ? `-${item.portion}` : "");
+      const sharingArray = itemSharing[key] || Array(numPeople).fill(true);
+      const sharingCount = sharingArray.filter(Boolean).length;
+      if (sharingCount === 0) return;
+
+      const itemTotalCost = item.price * item.qty;
+      const shareCost = itemTotalCost / sharingCount;
+
+      sharingArray.forEach((isSharing, idx) => {
+        if (isSharing) shares[idx] += shareCost;
+      });
+    });
+
+    if (calculatedTip > 0 && totalPrice > 0) {
+      shares.forEach((share, idx) => {
+        const ratio = share / totalPrice;
+        shares[idx] += ratio * calculatedTip;
+      });
+    }
+    return shares;
+  };
+
+  const personShares = getShares();
+
+  const getShareText = () => {
+    let text = `🧾 *${restaurantName} - Bill Split Summary* 🧾\n`;
+    text += `--------------------------\n`;
+    text += `Subtotal: ₹${totalPrice}\n`;
+    if (calculatedTip > 0) text += `Tip: ₹${calculatedTip}\n`;
+    text += `*Total Bill: ₹${billTotalWithTip.toFixed(2)}*\n\n`;
+
+    if (mode === "equal") {
+      text += `Split equally among ${numPeople} people:\n`;
+      text += `Each pays: *₹${equalSplitShare}*\n`;
+    } else {
+      text += `Split by items:\n`;
+      personNames.forEach((name, idx) => {
+        text += `• *${name}*: ₹${personShares[idx].toFixed(2)}\n`;
+        const itemsList = [];
+        cartItems.forEach(item => {
+          const key = item.dish.id + (item.portion ? `-${item.portion}` : "");
+          const sharingArray = itemSharing[key] || [];
+          if (sharingArray[idx]) {
+            const portionText = item.portion ? ` (${item.portion})` : "";
+            itemsList.push(`${item.dish.name}${portionText} (x${item.qty})`);
+          }
+        });
+        if (itemsList.length > 0) {
+          text += `  Items: ${itemsList.join(", ")}\n`;
+        }
+        text += `\n`;
+      });
+    }
+    text += `Powered by Menubabu 🍽️`;
+    return text;
+  };
+
+  const handleCopyText = () => {
+    navigator.clipboard.writeText(getShareText());
+    toast.success(lang === "hi" ? "विवरण क्लिपबोर्ड पर कॉपी हो गया! 📋" : "Split summary copied to clipboard! 📋");
+  };
+
+  const handleWhatsAppShare = () => {
+    const text = encodeURIComponent(getShareText());
+    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-55 flex items-center justify-center p-4"
+        style={{ zIndex: 100 }}
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.9, y: 20 }}
+          animate={{ scale: 1, y: 0 }}
+          exit={{ scale: 0.9, y: 20 }}
+          className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-heading text-lg font-bold text-gray-900">
+                {lang === "hi" ? "👥 बिल विभाजन" : "👥 Split Bill"}
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {lang === "hi" ? `कुल बिल: ₹${totalPrice}` : `Total Bill: ₹${totalPrice}`}
+              </p>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100">
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Mode Switcher */}
+          <div className="px-5 pt-4">
+            <div className="flex gap-2 bg-orange-50/50 p-1.5 rounded-2xl">
+              <button
+                onClick={() => setMode("equal")}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                  mode === "equal" ? "bg-orange-500 text-white shadow-md" : "text-orange-700 hover:bg-orange-100/50"
+                }`}
+              >
+                {lang === "hi" ? "बराबर बांटें" : "Split Equally"}
+              </button>
+              <button
+                onClick={() => setMode("itemized")}
+                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                  mode === "itemized" ? "bg-orange-500 text-white shadow-md" : "text-orange-700 hover:bg-orange-100/50"
+                }`}
+              >
+                {lang === "hi" ? "अलग-अलग बांटें" : "Split by Items"}
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="p-5 flex-1 overflow-y-auto space-y-4">
+            {/* Number of People Counter */}
+            <div className="bg-orange-50/30 rounded-2xl p-4 border border-orange-100/50 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
+                  {lang === "hi" ? "लोगों की संख्या" : "Number of People"}
+                </span>
+                <span className="font-heading text-2xl font-black text-orange-600 mt-0.5 block">{numPeople}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  disabled={numPeople <= 1}
+                  onClick={() => setNumPeople(p => Math.max(1, p - 1))}
+                  className="w-10 h-10 rounded-xl bg-white border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-50 font-bold text-lg disabled:opacity-50"
+                >
+                  -
+                </button>
+                <button
+                  disabled={numPeople >= 10}
+                  onClick={() => setNumPeople(p => Math.min(10, p + 1))}
+                  className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center text-white hover:bg-orange-600 font-bold text-lg disabled:opacity-50"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Tip Option */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
+                {lang === "hi" ? "टिप / सर्विस चार्ज जोड़ें" : "Add Tip / Service Charge"}
+              </label>
+              <div className="flex gap-2">
+                {[0, 5, 10, 15].map(pct => (
+                  <button
+                    key={pct}
+                    onClick={() => { setTipPercent(pct); setCustomTip(""); }}
+                    className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all border ${
+                      customTip === "" && tipPercent === pct
+                        ? "bg-orange-100 text-orange-700 border-orange-300"
+                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    {pct === 0 ? (lang === "hi" ? "कोई नहीं" : "None") : `${pct}%`}
+                  </button>
+                ))}
+              </div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                <input
+                  type="number"
+                  placeholder={lang === "hi" ? "कस्टम टिप राशि डालें..." : "Enter custom tip amount..."}
+                  value={customTip}
+                  onChange={e => setCustomTip(e.target.value)}
+                  className="w-full pl-7 pr-3 py-2.5 rounded-xl border border-orange-200 text-sm bg-white outline-none focus:ring-2 focus:ring-orange-300"
+                />
+              </div>
+            </div>
+
+            {/* Equal Split Result Panel */}
+            {mode === "equal" ? (
+              <div className="bg-gradient-to-r from-orange-500 to-red-600 rounded-3xl p-6 text-white text-center shadow-lg shadow-orange-100/70">
+                <span className="text-xs text-white/80 font-bold uppercase tracking-widest">
+                  {lang === "hi" ? "प्रति व्यक्ति भुगतान" : "EACH PERSON PAYS"}
+                </span>
+                <h4 className="font-heading text-4xl font-black mt-2">₹{equalSplitShare}</h4>
+                <p className="text-white/60 text-xs mt-2">
+                  {lang === "hi"
+                    ? `कुल बिल (टिप सहित): ₹${billTotalWithTip.toFixed(2)}`
+                    : `Total Bill (incl. tip): ₹${billTotalWithTip.toFixed(2)}`}
+                </p>
+              </div>
+            ) : (
+              /* Itemized Split View */
+              <div className="space-y-4">
+                {/* Person names customization */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
+                    {lang === "hi" ? "नाम बदलें" : "Customize Names"}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {personNames.map((name, idx) => (
+                      <input
+                        key={idx}
+                        type="text"
+                        value={name}
+                        onChange={e => handleNameChange(idx, e.target.value)}
+                        placeholder={`Person ${idx + 1}`}
+                        className="px-3 py-2 rounded-xl border border-gray-200 text-xs bg-white focus:border-orange-300 outline-none"
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* List items with checklist sharing */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
+                    {lang === "hi" ? "डिश के अनुसार विभाजन" : "Assign Items (Tap to toggle share)"}
+                  </label>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {cartItems.map(item => {
+                      const key = item.dish.id + (item.portion ? `-${item.portion}` : "");
+                      const sharingArray = itemSharing[key] || Array(numPeople).fill(true);
+                      const portionText = item.portion ? ` (${item.portion})` : "";
+                      return (
+                        <div key={key} className="bg-orange-50/40 border border-orange-100/50 rounded-2xl p-3 space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-bold text-gray-800">
+                              {lang === "hi" && item.dish.nameHindi ? item.dish.nameHindi : item.dish.name}
+                              {portionText} <span className="text-gray-400 font-medium">x{item.qty}</span>
+                            </span>
+                            <span className="font-extrabold text-orange-600">₹{item.price * item.qty}</span>
+                          </div>
+                          {/* Person selectors for this item */}
+                          <div className="flex flex-wrap gap-1.5">
+                            {personNames.map((name, pIdx) => {
+                              const isSharing = sharingArray[pIdx];
+                              return (
+                                <button
+                                  key={pIdx}
+                                  onClick={() => toggleItemShare(key, pIdx)}
+                                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all ${
+                                    isSharing
+                                      ? "bg-orange-500 text-white border-orange-500"
+                                      : "bg-white text-gray-400 border-gray-200 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  {isSharing && <Check size={8} />}
+                                  {name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Final Share List */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
+                    {lang === "hi" ? "हिस्सेदारी का परिणाम" : "Calculated Shares"}
+                  </label>
+                  <div className="space-y-2">
+                    {personNames.map((name, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-orange-50/20 p-3 rounded-xl border border-gray-100">
+                        <span className="text-xs font-semibold text-gray-800">{name}</span>
+                        <span className="text-sm font-black text-orange-600">₹{personShares[idx].toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer Actions */}
+          <div className="p-5 border-t border-gray-100 flex gap-2">
+            <button
+              onClick={handleCopyText}
+              className="flex-1 flex items-center justify-center gap-1.5 border-2 border-gray-200 text-gray-600 font-semibold text-xs py-3.5 rounded-xl hover:bg-gray-50 transition-all active:scale-95"
+            >
+              <Share2 size={14} />
+              {lang === "hi" ? "समरी कॉपी करें" : "Copy Details"}
+            </button>
+            <button
+              onClick={handleWhatsAppShare}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 text-white font-semibold text-xs py-3.5 rounded-xl transition-all shadow-md shadow-green-100 active:scale-95"
+            >
+              <Users size={14} />
+              {lang === "hi" ? "व्हाट्सएप शेयर" : "WhatsApp Share"}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 
 function DishCard({ dish, lang, cart, onAdd, onRemove, soldOutLabel }) {
   const [imgLoaded, setImgLoaded] = useState(false);
