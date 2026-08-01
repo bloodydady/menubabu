@@ -76,20 +76,36 @@ export default function SuperAdmin() {
     if (!svg) return;
     const svgData = new XMLSerializer().serializeToString(svg);
     const canvas = document.createElement("canvas");
-    canvas.width = 300; canvas.height = 340;
+    canvas.width = 300;
+    canvas.height = 380;
     const ctx = canvas.getContext("2d");
     const img = new Image();
     img.onload = () => {
       ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, 300, 340);
+      ctx.fillRect(0, 0, 300, 380);
       ctx.drawImage(img, 25, 25, 250, 250);
+      
+      // Restaurant Name
       ctx.font = "bold 16px Inter, sans-serif";
       ctx.fillStyle = "#1A1A1A";
       ctx.textAlign = "center";
-      ctx.fillText(restaurantName, 150, 300);
-      ctx.font = "12px Inter, sans-serif";
+      ctx.fillText(restaurantName, 150, 295);
+      
+      // Subtitle
+      ctx.font = "bold 11px Inter, sans-serif";
       ctx.fillStyle = "#FF6B00";
-      ctx.fillText("Scan to View Menu & Calculate Bill", 150, 325);
+      ctx.fillText("Scan to View Menu & Calculate Bill", 150, 318);
+      
+      // Instruction English
+      ctx.font = "9px Inter, sans-serif";
+      ctx.fillStyle = "#4A5568";
+      ctx.fillText("👉 Use Phone Camera or Google Lens to Scan", 150, 338);
+      
+      // Instruction Hindi
+      ctx.font = "9px Inter, sans-serif";
+      ctx.fillStyle = "#718096";
+      ctx.fillText("👉 मोबाइल कैमरा या गूगल लेंस से स्कैन करें", 150, 356);
+
       const link = document.createElement("a");
       link.download = `menubabu-qr-${restaurantName.replace(/\s+/g, '-')}.png`;
       link.href = canvas.toDataURL("image/png");
