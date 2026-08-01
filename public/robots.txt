@@ -8,4 +8,4 @@ Disallow: /admin
 Disallow: /dashboard
 Disallow: /login
 
-Sitemap: https://menubabu.vercel.app/sitemap.xml
+Sitemap: https://menubabu.in/sitemap.xml
