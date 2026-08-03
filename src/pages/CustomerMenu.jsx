@@ -499,15 +499,11 @@ export default function CustomerMenu() {
         )}
       </div>
 
-      {/* CART BOTTOM BAR - only shown when cart sheet is closed */}
-      {totalItems > 0 && !cartOpen && (
-        <motion.div
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 100, opacity: 0 }}
-          transition={{ type: "spring", damping: 22, stiffness: 300 }}
+      {/* CART BOTTOM BAR */}
+      {totalItems > 0 && (
+        <div
           className="fixed bottom-0 left-0 right-0 px-4 pb-4"
-          style={{ zIndex: 40 }}
+          style={{ zIndex: cartOpen ? -1 : 45 }}
         >
           <button
             onClick={() => setCartOpen(true)}
@@ -524,122 +520,113 @@ export default function CustomerMenu() {
             </div>
             <div className="font-black text-xl">₹{totalPrice}</div>
           </button>
-        </motion.div>
+        </div>
       )}
 
       {/* CART BOTTOM SHEET */}
-      <AnimatePresence>
-        {cartOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
-            onClick={() => setCartOpen(false)}
+      {cartOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+          style={{ zIndex: 50 }}
+          onClick={() => setCartOpen(false)}
+        >
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] overflow-hidden flex flex-col"
+            onClick={e => e.stopPropagation()}
           >
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 28, stiffness: 350 }}
-              className="absolute bottom-0 left-0 right-0 bg-white bottom-sheet max-h-[85vh] overflow-hidden flex flex-col"
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Sheet handle */}
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 bg-gray-200 rounded-full" />
-              </div>
-              <div className="px-5 py-3 flex items-center justify-between border-b border-gray-100">
-                <h3 className="font-heading text-lg font-bold text-gray-900">🛒 {t.cart}</h3>
-                <div className="flex items-center gap-2">
-                  {cartItems.length > 0 && (
-                    <motion.button
-                      whileTap={{ scale: 0.93 }}
-                      onClick={() => { clearCart(); toast.success("Cart cleared 🗑️"); }}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 px-3 py-1.5 rounded-xl transition-all"
-                    >
-                      <Trash2 size={13} />
-                      {lang === "hi" ? "साफ करें" : "Clear All"}
-                    </motion.button>
-                  )}
-                  <button onClick={() => setCartOpen(false)} className="p-2 rounded-xl hover:bg-gray-100">
-                    <X size={18} className="text-gray-500" />
+            {/* Sheet handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-200 rounded-full" />
+            </div>
+            <div className="px-5 py-3 flex items-center justify-between border-b border-gray-100">
+              <h3 className="font-heading text-lg font-bold text-gray-900">🛒 {t.cart}</h3>
+              <div className="flex items-center gap-2">
+                {cartItems.length > 0 && (
+                  <button
+                    onClick={() => { clearCart(); toast.success("Cart cleared 🗑️"); }}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-100 px-3 py-1.5 rounded-xl transition-all"
+                  >
+                    <Trash2 size={13} />
+                    {lang === "hi" ? "साफ करें" : "Clear All"}
                   </button>
+                )}
+                <button onClick={() => setCartOpen(false)} className="p-2 rounded-xl hover:bg-gray-100">
+                  <X size={18} className="text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
+              {cartItems.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <div className="text-5xl mb-3">🛒</div>
+                  <p className="font-medium">{t.emptyCart}</p>
                 </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
-                {cartItems.length === 0 ? (
-                  <div className="text-center py-12 text-gray-400">
-                    <div className="text-5xl mb-3">🛒</div>
-                    <p className="font-medium">{t.emptyCart}</p>
-                  </div>
-                ) : cartItems.map(({ dish, portion, qty, price }) => (
-                  <div key={dish.id + (portion ? `-${portion}` : "")} className="flex items-center gap-3 p-3 bg-orange-50 rounded-2xl">
-                    <img src={getDirectImageUrl(dish.imageUrl)} alt={dish.name} className="w-12 h-12 rounded-xl object-cover bg-orange-100" onError={e => e.target.src = "https://placehold.co/48x48/FFF3E0/FF6B00?text=🍽"} />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-sm text-gray-900 truncate">
-                        {lang === "hi" && dish.nameHindi ? dish.nameHindi : dish.name}
-                        {portion && (
-                          <span className="ml-1.5 text-[9px] text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded font-bold uppercase">
-                            {portion === "half" ? (lang === "hi" ? "हाफ" : "Half") : portion === "quarter" ? (lang === "hi" ? "क्वार्टर" : "Quarter") : (lang === "hi" ? "फुल" : "Full")}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-orange-600 font-bold text-sm">₹{price * qty}</div>
+              ) : cartItems.map(({ dish, portion, qty, price }) => (
+                <div key={(dish?.id || "") + (portion ? `-${portion}` : "")} className="flex items-center gap-3 p-3 bg-orange-50 rounded-2xl">
+                  <img src={getDirectImageUrl(dish?.imageUrl)} alt={dish?.name || ""} className="w-12 h-12 rounded-xl object-cover bg-orange-100" onError={e => e.target.src = "https://placehold.co/48x48/FFF3E0/FF6B00?text=🍽"} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm text-gray-900 truncate">
+                      {lang === "hi" && dish?.nameHindi ? dish.nameHindi : dish?.name || "Item"}
+                      {portion && (
+                        <span className="ml-1.5 text-[9px] text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded font-bold uppercase">
+                          {portion === "half" ? (lang === "hi" ? "हाफ" : "Half") : portion === "quarter" ? (lang === "hi" ? "क्वार्टर" : "Quarter") : (lang === "hi" ? "फुल" : "Full")}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => removeFromCart(dish.id, portion)} className="w-7 h-7 rounded-lg bg-white border border-orange-200 flex items-center justify-center text-orange-500 hover:bg-orange-50">
-                        <Minus size={14} />
-                      </button>
-                      <span className="font-bold text-sm w-5 text-center">{qty}</span>
-                      <button onClick={() => addToCart(dish, portion)} className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center text-white hover:bg-orange-600">
-                        <Plus size={14} />
-                      </button>
-                    </div>
+                    <div className="text-orange-600 font-bold text-sm">₹{(price || 0) * (qty || 1)}</div>
                   </div>
-                ))}
-              </div>
-
-              {cartItems.length > 0 && (
-                <div className="px-5 py-4 border-t border-gray-100 space-y-3">
-                  <div className="flex justify-between text-sm text-gray-500">
-                    <span>{t.taxes}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="font-heading text-lg font-bold">{t.total}</span>
-                    <span className="font-black text-2xl text-orange-600">₹{totalPrice}</span>
-                  </div>
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => { setCartOpen(false); setUpiModalOpen(true); }}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl text-sm shadow-md shadow-emerald-100 transition-all flex items-center justify-center gap-2"
-                    >
-                      <Wallet size={16} />
-                      {lang === "hi" ? `₹${totalPrice} ऑनलाइन भुगतान करें (UPI / GPay)` : `Pay ₹${totalPrice} Online (UPI / GPay)`}
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => removeFromCart(dish?.id, portion)} className="w-7 h-7 rounded-lg bg-white border border-orange-200 flex items-center justify-center text-orange-500 hover:bg-orange-50">
+                      <Minus size={14} />
                     </button>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => { setCartOpen(false); setSplitBillOpen(true); }}
-                        className="flex-1 border border-orange-500 text-orange-600 hover:bg-orange-50 font-bold py-3 rounded-2xl text-xs transition-all flex items-center justify-center gap-1.5"
-                      >
-                        <Users size={15} />
-                        {lang === "hi" ? "बिल बांटें" : "Split Bill"}
-                      </button>
-                      <button
-                        onClick={() => { setCartOpen(false); setWaiterModal(true); }}
-                        className="flex-1 bg-gradient-to-r from-orange-500 to-red-700 text-white font-bold py-3 rounded-2xl text-xs shadow-md transition-all"
-                      >
-                        {t.showWaiter}
-                      </button>
-                    </div>
+                    <span className="font-bold text-sm w-5 text-center">{qty}</span>
+                    <button onClick={() => addToCart(dish, portion)} className="w-7 h-7 rounded-lg bg-orange-500 flex items-center justify-center text-white hover:bg-orange-600">
+                      <Plus size={14} />
+                    </button>
                   </div>
                 </div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              ))}
+            </div>
+
+            {cartItems.length > 0 && (
+              <div className="px-5 py-4 border-t border-gray-100 space-y-3">
+                <div className="flex justify-between text-sm text-gray-500">
+                  <span>{t.taxes}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-heading text-lg font-bold">{t.total}</span>
+                  <span className="font-black text-2xl text-orange-600">₹{totalPrice}</span>
+                </div>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => { setCartOpen(false); setUpiModalOpen(true); }}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl text-sm shadow-md shadow-emerald-100 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Wallet size={16} />
+                    {lang === "hi" ? `₹${totalPrice} ऑनलाइन भुगतान करें (UPI / GPay)` : `Pay ₹${totalPrice} Online (UPI / GPay)`}
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setCartOpen(false); setSplitBillOpen(true); }}
+                      className="flex-1 border border-orange-500 text-orange-600 hover:bg-orange-50 font-bold py-3 rounded-2xl text-xs transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <Users size={15} />
+                      {lang === "hi" ? "बिल बांटें" : "Split Bill"}
+                    </button>
+                    <button
+                      onClick={() => { setCartOpen(false); setWaiterModal(true); }}
+                      className="flex-1 bg-gradient-to-r from-orange-500 to-red-700 text-white font-bold py-3 rounded-2xl text-xs shadow-md transition-all"
+                    >
+                      {t.showWaiter}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* WAITER MODAL */}
       <AnimatePresence>
