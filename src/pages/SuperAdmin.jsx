@@ -431,6 +431,7 @@ function RestaurantModal({ onClose, restaurantToEdit = null }) {
     bannerUrl: restaurantToEdit?.bannerUrl || "",
     description: restaurantToEdit?.description || "",
     ownerEmail: restaurantToEdit?.ownerEmail || "",
+    upiId: restaurantToEdit?.upiId || "",
     isActive: restaurantToEdit?.isActive !== undefined ? restaurantToEdit.isActive : true,
     address: restaurantToEdit?.address || "",
     mapUrl: restaurantToEdit?.mapUrl || "",
@@ -515,10 +516,11 @@ function RestaurantModal({ onClose, restaurantToEdit = null }) {
             )}
 
             {/* Section: Details */}
-            <p className="text-xs font-bold text-orange-500 uppercase tracking-widest pt-1">Location & Contact</p>
+            <p className="text-xs font-bold text-orange-500 uppercase tracking-widest pt-1">Location, Payment & Contact</p>
             <Input label="Address" value={form.address} onChange={v => setForm(f => ({ ...f, address: v }))} placeholder="123 MG Road, Bangalore, Karnataka" />
             <Input label="Google Maps URL (optional)" value={form.mapUrl} onChange={v => setForm(f => ({ ...f, mapUrl: v }))} placeholder="https://maps.google.com/?q=..." />
             <Input label="Phone Number" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} placeholder="+91 98765 43210" type="tel" />
+            <Input label="UPI ID for Online Payments" value={form.upiId} onChange={v => setForm(f => ({ ...f, upiId: v }))} placeholder="e.g. 9876543210@paytm or restaurant@ybl" />
 
             {/* Section: Cuisine & Timings */}
             <p className="text-xs font-bold text-orange-500 uppercase tracking-widest pt-1">Cuisine & Timings</p>

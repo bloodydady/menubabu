@@ -2,10 +2,10 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
-import { LogOut, QrCode, Copy, Download, AlertTriangle } from "lucide-react";
+import { LogOut, QrCode, Copy, Download, AlertTriangle, Wallet, X, Check } from "lucide-react";
 import QRCode from "react-qr-code";
 import toast from "react-hot-toast";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import DishManagerPanel from "../components/DishManagerPanel";
 import { getDirectImageUrl } from "../utils/imageHelper";
@@ -13,6 +13,9 @@ import { getDirectImageUrl } from "../utils/imageHelper";
 export default function RestaurantDashboard() {
   const { user, ownerRestaurant, logout } = useAuth();
   const [showQR, setShowQR] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [upiIdInput, setUpiIdInput] = useState("");
+  const [savingUpi, setSavingUpi] = useState(false);
   const [restaurantData, setRestaurantData] = useState(ownerRestaurant);
   const [loading, setLoading] = useState(true);
 
@@ -23,12 +26,30 @@ export default function RestaurantDashboard() {
     }
     const unsub = onSnapshot(doc(db, "restaurants", ownerRestaurant.id), (docSnap) => {
       if (docSnap.exists()) {
-        setRestaurantData({ id: docSnap.id, ...docSnap.data() });
+        const data = { id: docSnap.id, ...docSnap.data() };
+        setRestaurantData(data);
+        setUpiIdInput(data.upiId || "");
       }
       setLoading(false);
     });
     return unsub;
   }, [ownerRestaurant]);
+
+  const handleSaveUpi = async () => {
+    if (!ownerRestaurant?.id) return;
+    setSavingUpi(true);
+    try {
+      await updateDoc(doc(db, "restaurants", ownerRestaurant.id), {
+        upiId: upiIdInput.trim()
+      });
+      toast.success("UPI ID updated successfully! 💳");
+      setShowSettings(false);
+    } catch (e) {
+      toast.error("Failed to update UPI ID");
+    } finally {
+      setSavingUpi(false);
+    }
+  };
 
   const menuUrl = `${window.location.origin}/menu/${restaurantData?.id}`;
 
@@ -138,6 +159,12 @@ export default function RestaurantDashboard() {
             🏠 Home Page
           </Link>
           <button
+            onClick={() => setShowSettings(true)}
+            className="flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-2 rounded-xl transition-all"
+          >
+            <Wallet size={14} /> {restaurantData?.upiId ? "UPI Settings" : "Set UPI ID"}
+          </button>
+          <button
             onClick={() => setShowQR(true)}
             className="flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-xl transition-all"
           >
@@ -157,12 +184,51 @@ export default function RestaurantDashboard() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 bg-gradient-to-r from-orange-500 to-red-700 rounded-2xl p-5 text-white"
+          className="mb-6 bg-gradient-to-r from-orange-500 to-red-700 rounded-2xl p-5 text-white flex items-center justify-between"
         >
-          <div className="text-2xl mb-1">🙏 Namaste!</div>
-          <div className="font-heading text-xl font-bold">{restaurantData?.name}</div>
-          <div className="text-white/80 text-sm mt-1">Manage your menu from here</div>
+          <div>
+            <div className="text-2xl mb-1">🙏 Namaste!</div>
+            <div className="font-heading text-xl font-bold">{restaurantData?.name}</div>
+            <div className="text-white/80 text-sm mt-1">Manage your menu & payment settings</div>
+          </div>
+          {restaurantData?.upiId ? (
+            <div className="hidden sm:flex flex-col items-end bg-white/10 backdrop-blur-sm px-4 py-2.5 rounded-xl border border-white/20">
+              <span className="text-[10px] text-white/70 font-semibold uppercase tracking-wider">Active UPI Payment ID</span>
+              <span className="font-mono text-xs font-bold text-white mt-0.5">💳 {restaurantData.upiId}</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowSettings(true)}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg transition-all active:scale-95 flex items-center gap-1.5"
+            >
+              <Wallet size={14} /> Add UPI ID to Accept Payments
+            </button>
+          )}
         </motion.div>
+
+        {!restaurantData?.upiId && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between gap-3 text-emerald-900"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-lg">
+                💳
+              </div>
+              <div>
+                <h4 className="font-bold text-sm">Accept Direct Customer Payments via UPI</h4>
+                <p className="text-xs text-emerald-700">Add your UPI ID (Google Pay, PhonePe, Paytm) so customers can pay their exact bill directly from their phone!</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="bg-emerald-600 text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-emerald-700 transition-all flex-shrink-0"
+            >
+              Set UPI ID Now
+            </button>
+          </motion.div>
+        )}
 
         <DishManagerPanel restaurant={restaurantData} isOwnerView />
       </div>
@@ -208,6 +274,87 @@ export default function RestaurantDashboard() {
                 </button>
               </div>
               <p className="text-xs text-gray-400 mt-4">Print this and place on every table 📋</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* UPI Settings Modal */}
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowSettings(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.85, y: 30 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.85, y: 30 }}
+              transition={{ type: "spring", damping: 20 }}
+              className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+                    💳
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-lg font-bold text-gray-900">UPI Payment Settings</h3>
+                    <p className="text-xs text-gray-400">Accept direct payments from customers</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowSettings(false)} className="p-2 rounded-xl hover:bg-gray-100">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-4 my-5">
+                <div>
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block mb-1.5">
+                    Your UPI ID (VPA)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={upiIdInput}
+                      onChange={e => setUpiIdInput(e.target.value)}
+                      placeholder="e.g. 9876543210@paytm, name@ybl"
+                      className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-300 outline-none transition-all font-mono"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                    💡 <strong>Where to find your UPI ID:</strong> Open Google Pay, PhonePe, Paytm, or BHIM. Look under your profile or QR code section to copy your VPA ID (e.g. <code className="bg-gray-100 px-1 py-0.5 rounded text-emerald-700">8303858857@paytm</code>).
+                  </p>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
+                  <span className="text-base">⚠️</span>
+                  <div>
+                    <strong className="block mb-0.5">Important Note on Payments:</strong>
+                    When customers pay via UPI app (GPay/PhonePe), ask them to show the payment confirmation screen to your waiter to verify receipt.
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold text-xs hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveUpi}
+                  disabled={savingUpi}
+                  className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-200 disabled:opacity-50 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Check size={16} /> {savingUpi ? "Saving..." : "Save UPI ID"}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

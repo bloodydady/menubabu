@@ -66,6 +66,7 @@ export default function CustomerMenu() {
   const [cartOpen, setCartOpen] = useState(false);
   const [waiterModal, setWaiterModal] = useState(false);
   const [splitBillOpen, setSplitBillOpen] = useState(false);
+  const [upiModalOpen, setUpiModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const categoryRefs = useRef({});
@@ -679,6 +680,17 @@ export default function CustomerMenu() {
                 <span className="font-heading text-base font-bold">{t.total}</span>
                 <span className="font-black text-2xl text-orange-600">₹{totalPrice}</span>
               </div>
+              
+              {restaurant?.upiId ? (
+                <button
+                  onClick={() => setUpiModalOpen(true)}
+                  className="w-full mb-3 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-emerald-100 transition-all flex items-center justify-center gap-2 active:scale-95"
+                >
+                  <Wallet size={16} />
+                  {lang === "hi" ? `₹${totalPrice} UPI से पे करें (GPay/PhonePe)` : `Pay ₹${totalPrice} via UPI (GPay/PhonePe)`}
+                </button>
+              ) : null}
+
               <p className="text-center text-xs text-gray-400 mb-4">Please show this to your waiter to place the order 🙏</p>
               <div className="flex gap-2">
                 <button
@@ -707,6 +719,15 @@ export default function CustomerMenu() {
         totalPrice={totalPrice}
         lang={lang}
         restaurantName={restaurant.name}
+      />
+
+      {/* UPI PAYMENT MODAL */}
+      <UPIPaymentModal
+        isOpen={upiModalOpen}
+        onClose={() => setUpiModalOpen(false)}
+        totalPrice={totalPrice}
+        restaurant={restaurant}
+        lang={lang}
       />
     </div>
   );
@@ -1224,3 +1245,118 @@ function DishCard({ dish, lang, cart, onAdd, onRemove, soldOutLabel }) {
     </motion.div>
   );
 }
+
+function UPIPaymentModal({ isOpen, onClose, totalPrice, restaurant, lang }) {
+  if (!isOpen || !restaurant?.upiId) return null;
+
+  const upiId = restaurant.upiId;
+  const restaurantName = restaurant.name;
+  const upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(restaurantName)}&am=${totalPrice}&cu=INR&tn=${encodeURIComponent("Menubabu Bill Payment - " + restaurantName)}`;
+
+  const handleCopyUpi = () => {
+    navigator.clipboard.writeText(upiId);
+    toast.success(lang === "hi" ? "UPI ID कॉपी हो गया!" : "UPI ID copied to clipboard!");
+  };
+
+  const handlePayClick = (appScheme) => {
+    // If specific app scheme is requested, fallback to default upiLink
+    window.location.href = appScheme || upiLink;
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-55 flex items-center justify-center p-4"
+        style={{ zIndex: 110 }}
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.9, y: 20 }}
+          animate={{ scale: 1, y: 0 }}
+          exit={{ scale: 0.9, y: 20 }}
+          className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="bg-gradient-to-r from-emerald-600 to-teal-700 p-5 text-white flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center text-xl">
+                💳
+              </div>
+              <div>
+                <h3 className="font-heading text-base font-bold">
+                  {lang === "hi" ? "UPI भुगतान" : "UPI Direct Payment"}
+                </h3>
+                <p className="text-xs text-white/80">{restaurantName}</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/20 text-white">
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* Total amount card */}
+            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center">
+              <span className="text-xs text-emerald-700 font-bold uppercase tracking-wider block">
+                {lang === "hi" ? "भुगतान राशि" : "AMOUNT TO PAY"}
+              </span>
+              <h2 className="font-heading text-4xl font-black text-emerald-700 mt-1">₹{totalPrice}</h2>
+              <div className="mt-2 text-xs text-emerald-800 font-mono bg-white/80 py-1.5 px-3 rounded-xl inline-flex items-center gap-2 border border-emerald-200">
+                <span>UPI ID: <strong>{upiId}</strong></span>
+                <button onClick={handleCopyUpi} className="text-emerald-600 hover:text-emerald-900 font-bold text-[10px] underline">
+                  Copy
+                </button>
+              </div>
+            </div>
+
+            {/* Direct Pay Buttons */}
+            <div>
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-2 text-center">
+                {lang === "hi" ? "भुगतान ऐप से भुगतान करें" : "Pay directly via UPI App"}
+              </label>
+              
+              <a
+                href={upiLink}
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-emerald-100 transition-all flex items-center justify-center gap-2 active:scale-95 text-center mb-2"
+              >
+                <ExternalLink size={16} />
+                {lang === "hi" ? "यूपीआई ऐप खोलें (GPay/PhonePe)" : "Open Any UPI App (GPay / PhonePe / Paytm)"}
+              </a>
+              
+              <p className="text-[10px] text-gray-400 text-center">
+                {lang === "hi" ? "राशि ऑटो-फील हो जाएगी" : "Amount ₹" + totalPrice + " will be pre-filled automatically"}
+              </p>
+            </div>
+
+            {/* Waiter verification notice */}
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs text-amber-900 flex items-start gap-2">
+              <span className="text-base flex-shrink-0">⚠️</span>
+              <div>
+                <strong className="block font-bold">
+                  {lang === "hi" ? "महत्वपूर्ण सूचना:" : "Verification Notice:"}
+                </strong>
+                {lang === "hi" 
+                  ? "भुगतान करने के बाद पेमेंट सक्सेस स्क्रीन (Payment Success Screen) अपने वेटर को अवश्य दिखाएं।" 
+                  : "Please show the payment success screen to your waiter after completing payment."}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 pb-5">
+            <button
+              onClick={onClose}
+              className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition-all"
+            >
+              {lang === "hi" ? "बंद करें" : "Close"}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
