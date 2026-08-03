@@ -116,6 +116,8 @@ function AppRoutes() {
   );
 }
 
+import { ErrorBoundary } from "./components/ErrorBoundary";
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -134,7 +136,9 @@ export default function App() {
             success: { iconTheme: { primary: '#FF6B00', secondary: '#fff' } },
           }}
         />
-        <AppRoutes />
+        <ErrorBoundary>
+          <AppRoutes />
+        </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
   );

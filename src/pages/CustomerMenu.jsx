@@ -62,7 +62,27 @@ export default function CustomerMenu() {
   const [lang, setLang] = useState("en");
   const [filter, setFilter] = useState("All");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [cart, setCart] = useState({});
+  // Persist cart per restaurant in localStorage so refresh never loses items
+  const [cart, setCart] = useState(() => {
+    try {
+      if (!restaurantId) return {};
+      const saved = localStorage.getItem(`menubabu_cart_${restaurantId}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (restaurantId) {
+        localStorage.setItem(`menubabu_cart_${restaurantId}`, JSON.stringify(cart));
+      }
+    } catch (e) {
+      console.error("Failed to save cart to localStorage", e);
+    }
+  }, [cart, restaurantId]);
+
   const [cartOpen, setCartOpen] = useState(false);
   const [waiterModal, setWaiterModal] = useState(false);
   const [splitBillOpen, setSplitBillOpen] = useState(false);
@@ -102,6 +122,7 @@ export default function CustomerMenu() {
 
   // Cart helpers
   const addToCart = useCallback((dish, portion = null) => {
+    if (!dish || !dish.id) return;
     const key = dish.id + (portion ? `-${portion}` : "");
     const price = portion && dish.portions ? Number(dish.portions[portion]) : Number(dish.price);
     setCart(c => ({
@@ -116,6 +137,7 @@ export default function CustomerMenu() {
   }, []);
 
   const removeFromCart = useCallback((dishId, portion = null) => {
+    if (!dishId) return;
     const key = dishId + (portion ? `-${portion}` : "");
     setCart(c => {
       const next = { ...c };
@@ -128,7 +150,14 @@ export default function CustomerMenu() {
     });
   }, []);
 
-  const clearCart = () => setCart({});
+  const clearCart = () => {
+    setCart({});
+    try {
+      if (restaurantId) {
+        localStorage.removeItem(`menubabu_cart_${restaurantId}`);
+      }
+    } catch (e) {}
+  };
 
   const cartItems = Object.values(cart).filter(i => i && i.dish && i.dish.id);
   const totalItems = cartItems.reduce((s, i) => s + (i.qty || 0), 0);
@@ -194,10 +223,26 @@ export default function CustomerMenu() {
   );
 
   if (error) return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: "#FFFBF5" }}>
-      <div className="text-6xl mb-4">😕</div>
-      <h2 className="font-heading text-2xl font-bold text-gray-900 mb-2">Menu not found</h2>
-      <p className="text-gray-500">{error}</p>
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center" style={{ background: "#FFFBF5" }}>
+      <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl border border-orange-100 flex flex-col items-center">
+        <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-3xl mb-4 shadow-inner">
+          🍽️
+        </div>
+        <h2 className="font-heading text-xl font-bold text-gray-900 mb-2">
+          मेनू उपलब्ध नहीं है / Menu Not Found
+        </h2>
+        <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+          {error === "Restaurant not found" ? "यह रेस्टोरेंट क्यूआर कोड मान्य नहीं है।" : "नेटवर्क चेक करें और दोबारा प्रयास करें।"}
+          <br />
+          <span className="text-xs text-gray-400 font-mono mt-1 block">{error}</span>
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-orange-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+        >
+          🔄 Reload Menu / दोबारा प्रयास करें
+        </button>
+      </div>
     </div>
   );
 
