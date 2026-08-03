@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, doc, getDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "../firebase";
-import { ShoppingCart, X, Plus, Minus, Printer, Trash2, ArrowLeft, Receipt, Search, Users, Share2, UserPlus, Check } from "lucide-react";
+import { ShoppingCart, X, Plus, Minus, Printer, Trash2, ArrowLeft, Receipt, Search, Users, Share2, UserPlus, Check, Settings } from "lucide-react";
 import { getDirectImageUrl } from "../utils/imageHelper";
+import { useAuth } from "../context/AuthContext";
 
 const CATEGORIES = [
   "Paneer Special",
@@ -53,6 +54,7 @@ export default function CustomerMenu() {
   const { restaurantId } = useParams();
   const navigate = useNavigate();
 
+  const { user, isSuperAdmin, ownerRestaurant } = useAuth();
   const [restaurant, setRestaurant] = useState(null);
   const [dishes, setDishes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -318,6 +320,31 @@ export default function CustomerMenu() {
               </button>
             ))}
           </div>
+          {/* Owner / Admin quick access */}
+          {isSuperAdmin ? (
+            <Link
+              to="/admin"
+              className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-md"
+              title="Admin Panel"
+            >
+              <Settings size={14} />
+            </Link>
+          ) : user && ownerRestaurant?.id === restaurantId ? (
+            <Link
+              to="/dashboard"
+              className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-md"
+              title="Manage Menu"
+            >
+              <Settings size={14} />
+            </Link>
+          ) : !user ? (
+            <Link
+              to="/login"
+              className="flex-shrink-0 text-[10px] text-gray-400 hover:text-orange-500 font-semibold transition-colors"
+            >
+              Owner?
+            </Link>
+          ) : null}
         </div>
 
         {/* Filter Bar + Search */}
