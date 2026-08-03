@@ -55,13 +55,31 @@ export default function CustomerMenu() {
   const navigate = useNavigate();
 
   const { user, isSuperAdmin, ownerRestaurant } = useAuth();
-  const [restaurant, setRestaurant] = useState(null);
-  const [dishes, setDishes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Cache keys for instant load
+  const cacheKeyRest = `menubabu_cache_rest_${restaurantId}`;
+  const cacheKeyDishes = `menubabu_cache_dishes_${restaurantId}`;
+
+  const [restaurant, setRestaurant] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(cacheKeyRest);
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  const [dishes, setDishes] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem(cacheKeyDishes);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  // If cache exists, loading starts false for 0ms instant display!
+  const [loading, setLoading] = useState(() => !(restaurant && dishes.length > 0));
   const [error, setError] = useState(null);
   const [lang, setLang] = useState("en");
   const [filter, setFilter] = useState("All");
   const [activeCategory, setActiveCategory] = useState("All");
+
   // Persist cart per restaurant in localStorage so refresh never loses items
   const [cart, setCart] = useState(() => {
     try {
@@ -90,14 +108,23 @@ export default function CustomerMenu() {
   const [searchOpen, setSearchOpen] = useState(false);
   const categoryRefs = useRef({});
 
-  // Always fetch from Firestore — no demo mode
+  // Fast Firestore fetch with background cache sync
   useEffect(() => {
+    let isMounted = true;
+
     const fetchRestaurant = async () => {
       try {
         const rDoc = await getDoc(doc(db, "restaurants", restaurantId));
-        if (!rDoc.exists()) { setError("Restaurant not found"); setLoading(false); return; }
-        setRestaurant({ id: rDoc.id, ...rDoc.data() });
-      } catch (e) { setError("Failed to load menu"); setLoading(false); }
+        if (!rDoc.exists()) {
+          if (isMounted) { setError("Restaurant not found"); setLoading(false); }
+          return;
+        }
+        const data = { id: rDoc.id, ...rDoc.data() };
+        if (isMounted) setRestaurant(data);
+        try { sessionStorage.setItem(cacheKeyRest, JSON.stringify(data)); } catch (e) {}
+      } catch (e) {
+        if (isMounted && !restaurant) { setError("Failed to load menu"); setLoading(false); }
+      }
     };
     fetchRestaurant();
 
@@ -106,10 +133,17 @@ export default function CustomerMenu() {
       orderBy("sortOrder", "asc")
     );
     const unsub = onSnapshot(q, snap => {
-      setDishes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    }, () => { setError("Failed to load dishes"); setLoading(false); });
-    return unsub;
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (isMounted) {
+        setDishes(items);
+        setLoading(false);
+      }
+      try { sessionStorage.setItem(cacheKeyDishes, JSON.stringify(items)); } catch (e) {}
+    }, () => {
+      if (isMounted && dishes.length === 0) { setError("Failed to load dishes"); setLoading(false); }
+    });
+
+    return () => { isMounted = false; unsub(); };
   }, [restaurantId]);
 
   // SEO
