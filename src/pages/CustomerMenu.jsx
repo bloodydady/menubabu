@@ -499,34 +499,33 @@ export default function CustomerMenu() {
         )}
       </div>
 
-      {/* CART BOTTOM BAR */}
-      <AnimatePresence>
-        {totalItems > 0 && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            transition={{ type: "spring", damping: 22, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4"
+      {/* CART BOTTOM BAR - only shown when cart sheet is closed */}
+      {totalItems > 0 && !cartOpen && (
+        <motion.div
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 100, opacity: 0 }}
+          transition={{ type: "spring", damping: 22, stiffness: 300 }}
+          className="fixed bottom-0 left-0 right-0 px-4 pb-4"
+          style={{ zIndex: 40 }}
+        >
+          <button
+            onClick={() => setCartOpen(true)}
+            className="w-full max-w-2xl mx-auto flex items-center justify-between bg-gradient-to-r from-orange-500 to-red-700 text-white rounded-2xl px-5 py-4 shadow-xl shadow-orange-300/50"
           >
-            <button
-              onClick={() => setCartOpen(true)}
-              className="w-full max-w-2xl mx-auto flex items-center justify-between bg-gradient-to-r from-orange-500 to-red-700 text-white rounded-2xl px-5 py-4 shadow-xl shadow-orange-300/50 block"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Receipt size={18} />
-                </div>
-                <div className="text-left">
-                  <div className="font-bold text-sm">{totalItems} {totalItems === 1 ? "Item" : "Items"} Selected</div>
-                  <div className="text-white/70 text-xs">{lang === "hi" ? "कुल बिल देखने के लिए दबाएं" : "Tap to check total bill"}</div>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+                <Receipt size={18} />
               </div>
-              <div className="font-black text-xl">₹{totalPrice}</div>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <div className="text-left">
+                <div className="font-bold text-sm">{totalItems} {totalItems === 1 ? "Item" : "Items"} Selected</div>
+                <div className="text-white/70 text-xs">{lang === "hi" ? "कुल बिल देखने के लिए दबाएं" : "Tap to check total bill"}</div>
+              </div>
+            </div>
+            <div className="font-black text-xl">₹{totalPrice}</div>
+          </button>
+        </motion.div>
+      )}
 
       {/* CART BOTTOM SHEET */}
       <AnimatePresence>
@@ -613,35 +612,23 @@ export default function CustomerMenu() {
                   </div>
                   <div className="space-y-2">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCartOpen(false);
-                        setTimeout(() => setUpiModalOpen(true), 50);
-                      }}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl text-sm shadow-md shadow-emerald-100 transition-all flex items-center justify-center gap-2 active:scale-95"
+                      onClick={() => { setCartOpen(false); setUpiModalOpen(true); }}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl text-sm shadow-md shadow-emerald-100 transition-all flex items-center justify-center gap-2"
                     >
                       <Wallet size={16} />
                       {lang === "hi" ? `₹${totalPrice} ऑनलाइन भुगतान करें (UPI / GPay)` : `Pay ₹${totalPrice} Online (UPI / GPay)`}
                     </button>
                     <div className="flex gap-2">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCartOpen(false);
-                          setTimeout(() => setSplitBillOpen(true), 50);
-                        }}
-                        className="flex-1 border border-orange-500 text-orange-600 hover:bg-orange-50 font-bold py-3 rounded-2xl text-xs transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                        onClick={() => { setCartOpen(false); setSplitBillOpen(true); }}
+                        className="flex-1 border border-orange-500 text-orange-600 hover:bg-orange-50 font-bold py-3 rounded-2xl text-xs transition-all flex items-center justify-center gap-1.5"
                       >
                         <Users size={15} />
                         {lang === "hi" ? "बिल बांटें" : "Split Bill"}
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCartOpen(false);
-                          setTimeout(() => setWaiterModal(true), 50);
-                        }}
-                        className="flex-1 bg-gradient-to-r from-orange-500 to-red-700 text-white font-bold py-3 rounded-2xl text-xs shadow-md active:scale-95 transition-all"
+                        onClick={() => { setCartOpen(false); setWaiterModal(true); }}
+                        className="flex-1 bg-gradient-to-r from-orange-500 to-red-700 text-white font-bold py-3 rounded-2xl text-xs shadow-md transition-all"
                       >
                         {t.showWaiter}
                       </button>
@@ -661,8 +648,8 @@ export default function CustomerMenu() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-55 flex items-center justify-center p-4"
-            style={{ zIndex: 150 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+            style={{ zIndex: 200 }}
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setWaiterModal(false);
@@ -719,10 +706,10 @@ export default function CustomerMenu() {
                 <span className="font-black text-2xl text-orange-600">₹{totalPrice}</span>
               </div>
               
-              {/* Payment Option Button - Always visible */}
+              {/* Payment Option Button */}
               <button
-                onClick={() => setUpiModalOpen(true)}
-                className="w-full mb-3 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-emerald-100 transition-all flex items-center justify-center gap-2 active:scale-95"
+                onClick={() => { setWaiterModal(false); setUpiModalOpen(true); }}
+                className="w-full mb-3 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-emerald-100 transition-all flex items-center justify-center gap-2"
               >
                 <Wallet size={16} />
                 {lang === "hi" ? `₹${totalPrice} ऑनलाइन भुगतान करें (UPI / QR)` : `Pay ₹${totalPrice} Online (UPI / GPay)`}
@@ -1313,7 +1300,7 @@ function UPIPaymentModal({ isOpen, onClose, totalPrice, restaurant, lang }) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
-        style={{ zIndex: 110 }}
+        style={{ zIndex: 300 }}
         onClick={(e) => {
           if (e.target === e.currentTarget) {
             onClose();
