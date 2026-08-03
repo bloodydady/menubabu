@@ -611,28 +611,41 @@ export default function CustomerMenu() {
                     <span className="font-heading text-lg font-bold">{t.total}</span>
                     <span className="font-black text-2xl text-orange-600">₹{totalPrice}</span>
                   </div>
-                  <div className="flex gap-2.5">
+                  <div className="space-y-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setCartOpen(false);
-                        setTimeout(() => setSplitBillOpen(true), 50);
+                        setTimeout(() => setUpiModalOpen(true), 50);
                       }}
-                      className="flex-1 border-2 border-orange-500 text-orange-600 hover:bg-orange-50 font-bold py-3.5 rounded-2xl text-sm transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl text-sm shadow-md shadow-emerald-100 transition-all flex items-center justify-center gap-2 active:scale-95"
                     >
-                      <Users size={16} />
-                      {lang === "hi" ? "बिल बांटें" : "Split Bill"}
+                      <Wallet size={16} />
+                      {lang === "hi" ? `₹${totalPrice} ऑनलाइन भुगतान करें (UPI / GPay)` : `Pay ₹${totalPrice} Online (UPI / GPay)`}
                     </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCartOpen(false);
-                        setTimeout(() => setWaiterModal(true), 50);
-                      }}
-                      className="flex-1 bg-gradient-to-r from-orange-500 to-red-700 text-white font-bold py-3.5 rounded-2xl text-sm shadow-lg shadow-orange-200/50 active:scale-95 transition-all"
-                    >
-                      {t.showWaiter}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCartOpen(false);
+                          setTimeout(() => setSplitBillOpen(true), 50);
+                        }}
+                        className="flex-1 border border-orange-500 text-orange-600 hover:bg-orange-50 font-bold py-3 rounded-2xl text-xs transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                      >
+                        <Users size={15} />
+                        {lang === "hi" ? "बिल बांटें" : "Split Bill"}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCartOpen(false);
+                          setTimeout(() => setWaiterModal(true), 50);
+                        }}
+                        className="flex-1 bg-gradient-to-r from-orange-500 to-red-700 text-white font-bold py-3 rounded-2xl text-xs shadow-md active:scale-95 transition-all"
+                      >
+                        {t.showWaiter}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
