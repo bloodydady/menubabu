@@ -545,14 +545,13 @@ export default function CustomerMenu() {
       </div>
 
       {/* CART BOTTOM BAR */}
-      {totalItems > 0 && (
+      {totalItems > 0 && !cartOpen && (
         <div
-          className="fixed bottom-0 left-0 right-0 px-4 pb-4"
-          style={{ zIndex: cartOpen ? -1 : 45 }}
+          className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4"
         >
           <button
             onClick={() => setCartOpen(true)}
-            className="w-full max-w-2xl mx-auto flex items-center justify-between bg-gradient-to-r from-orange-500 to-red-700 text-white rounded-2xl px-5 py-4 shadow-xl shadow-orange-300/50"
+            className="w-full max-w-2xl mx-auto flex items-center justify-between bg-gradient-to-r from-orange-500 to-red-700 text-white rounded-2xl px-5 py-4 shadow-xl shadow-orange-300/50 active:scale-[0.98] transition-transform"
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
