@@ -130,9 +130,9 @@ export default function CustomerMenu() {
 
   const clearCart = () => setCart({});
 
-  const cartItems = Object.values(cart);
-  const totalItems = cartItems.reduce((s, i) => s + i.qty, 0);
-  const totalPrice = cartItems.reduce((s, i) => s + i.qty * i.price, 0);
+  const cartItems = Object.values(cart).filter(i => i && i.dish && i.dish.id);
+  const totalItems = cartItems.reduce((s, i) => s + (i.qty || 0), 0);
+  const totalPrice = cartItems.reduce((s, i) => s + (i.qty || 0) * (i.price || 0), 0);
 
   // Filter and group dishes
   const filteredDishes = dishes.filter(d => {
@@ -641,7 +641,7 @@ export default function CustomerMenu() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-55 flex items-center justify-center p-4"
-            style={{ zIndex: 90 }}
+            style={{ zIndex: 150 }}
             onClick={() => setWaiterModal(false)}
           >
             <motion.div
@@ -656,26 +656,31 @@ export default function CustomerMenu() {
               <div className="text-center mb-4">
                 <div className="text-4xl mb-2">🙏</div>
                 <h3 className="font-heading text-xl font-bold text-gray-900">{t.orderSummary}</h3>
-                <p className="text-gray-500 text-sm">{restaurant.name}</p>
+                <p className="text-gray-500 text-sm">{restaurant?.name || ""}</p>
               </div>
               <div className="border-t border-b border-dashed border-gray-200 py-4 space-y-2 mb-4">
-                {cartItems.map(({ dish, portion, qty, price }, i) => (
-                  <div key={dish.id + (portion ? `-${portion}` : "")} className="flex justify-between text-sm">
-                    <span className="text-gray-700 flex gap-2">
-                      <span className="font-semibold text-gray-400">{i + 1}.</span>
-                      <div>
-                        {lang === "hi" && dish.nameHindi ? dish.nameHindi : dish.name}
-                        {portion && (
-                          <span className="ml-1.5 text-[10px] text-orange-600 font-bold uppercase">
-                            ({portion})
-                          </span>
-                        )}
-                        <span className="text-gray-400 text-xs ml-1.5">× {qty}</span>
-                      </div>
-                    </span>
-                    <span className="font-semibold">₹{price * qty}</span>
-                  </div>
-                ))}
+                {cartItems.map(({ dish, portion, qty, price }, i) => {
+                  if (!dish) return null;
+                  const itemKey = (dish.id || i) + (portion ? `-${portion}` : "");
+                  const itemName = (lang === "hi" && dish.nameHindi) ? dish.nameHindi : (dish.name || "Item");
+                  return (
+                    <div key={itemKey} className="flex justify-between text-sm">
+                      <span className="text-gray-700 flex gap-2">
+                        <span className="font-semibold text-gray-400">{i + 1}.</span>
+                        <div>
+                          {itemName}
+                          {portion && (
+                            <span className="ml-1.5 text-[10px] text-orange-600 font-bold uppercase">
+                              ({portion})
+                            </span>
+                          )}
+                          <span className="text-gray-400 text-xs ml-1.5">× {qty}</span>
+                        </div>
+                      </span>
+                      <span className="font-semibold">₹{(price || 0) * (qty || 1)}</span>
+                    </div>
+                  );
+                })}
               </div>
               <div className="flex justify-between items-center mb-4">
                 <span className="font-heading text-base font-bold">{t.total}</span>
